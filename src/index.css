@@ -18,12 +18,13 @@ body {
 }
 
 .leaflet-popup-content-wrapper {
-  background-color: #ffffff;
+  background-color: #1f2937;
   border-radius: 8px;
+  color: white;
 }
 
 .leaflet-popup-tip {
-  background-color: #ffffff;
+  background-color: #1f2937;
 }
 
 /* 커스텀 마커 스타일 */
