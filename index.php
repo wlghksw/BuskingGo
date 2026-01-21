@@ -8,8 +8,8 @@ session_start();
 // 상수 파일 로드
 require_once __DIR__ . '/config/constants.php';
 
-// 페이지 라우팅 (기본값: home)
-$page = $_GET['page'] ?? 'home';
+// 페이지 라우팅 (기본값: split)
+$page = $_GET['page'] ?? 'split';
 
 // 세션 초기화 (없는 경우)
 if (!isset($_SESSION['userType'])) {
@@ -25,12 +25,9 @@ if (!isset($_SESSION['selectedLocation'])) {
 // 사용자 유형 설정 처리
 if (isset($_POST['userType'])) {
     $_SESSION['userType'] = $_POST['userType'];
-    // split 페이지인 경우 appPage 파라미터 유지
-    if ($page === 'split' && isset($_POST['appPage'])) {
-        header('Location: index.php?page=split&appPage=' . urlencode($_POST['appPage']));
-    } else {
-        header('Location: index.php?page=' . ($page ?: 'split'));
-    }
+    // split 페이지로 리다이렉트
+    $appPage = $_POST['appPage'] ?? 'home';
+    header('Location: index.php?page=split&appPage=' . urlencode($appPage));
     exit;
 }
 
@@ -42,18 +39,13 @@ if (isset($_GET['toggleFavorite'])) {
     } else {
         $_SESSION['favorites'][] = $id;
     }
-    // split 페이지인 경우 appPage 파라미터 유지
-    if ($page === 'split') {
-        $appPage = $_GET['appPage'] ?? 'home';
-        // favorites 페이지에서 찜 해제 시에도 favorites 페이지에 머물기
-        if ($appPage === 'favorites' && !in_array($id, $_SESSION['favorites'])) {
-            header('Location: index.php?page=split&appPage=favorites');
-        } else {
-            header('Location: index.php?page=split&appPage=' . $appPage);
-        }
+    // split 페이지로 리다이렉트
+    $appPage = $_GET['appPage'] ?? 'home';
+    // favorites 페이지에서 찜 해제 시에도 favorites 페이지에 머물기
+    if ($appPage === 'favorites' && !in_array($id, $_SESSION['favorites'])) {
+        header('Location: index.php?page=split&appPage=favorites');
     } else {
-        $redirectPage = $page ?: 'split';
-        header('Location: index.php?page=' . $redirectPage);
+        header('Location: index.php?page=split&appPage=' . $appPage);
     }
     exit;
 }
@@ -61,14 +53,86 @@ if (isset($_GET['toggleFavorite'])) {
 // 지역 선택 처리
 if (isset($_GET['location'])) {
     $_SESSION['selectedLocation'] = $_GET['location'];
-    // split 페이지인 경우 appPage 파라미터 유지
-    if ($page === 'split') {
-        $appPage = $_GET['appPage'] ?? 'home';
-        header('Location: index.php?page=split&appPage=' . $appPage . '&location=' . urlencode($_GET['location']));
-    } else {
-        header('Location: index.php?page=' . $page);
-    }
+    // split 페이지로 리다이렉트
+    $appPage = $_GET['appPage'] ?? 'home';
+    header('Location: index.php?page=split&appPage=' . $appPage . '&location=' . urlencode($_GET['location']));
     exit;
+}
+
+// 커뮤니티 게시글 및 댓글 초기화 (세션에 저장)
+if (!isset($_SESSION['communityPosts'])) {
+    $_SESSION['communityPosts'] = $communityPosts;
+}
+if (!isset($_SESSION['communityComments'])) {
+    $_SESSION['communityComments'] = [];
+}
+
+// 커뮤니티 게시글 작성 처리
+if (isset($_POST['writePost'])) {
+    $tab = $_POST['tab'] ?? 'free';
+    $title = $_POST['title'] ?? '';
+    $content = $_POST['content'] ?? '';
+    $author = $_SESSION['userType'] === 'artist' ? '아티스트' : '사용자';
+    
+    if ($title && $content) {
+        $newPost = [
+            'id' => time(), // 임시 ID
+            'title' => $title,
+            'content' => $content,
+            'author' => $author,
+            'date' => date('Y-m-d'),
+            'views' => 0,
+            'comments' => 0
+        ];
+        
+        // 탭별 추가 필드
+        if ($tab === 'recruit') {
+            $newPost['location'] = $_POST['location'] ?? '천안';
+            $newPost['genre'] = $_POST['genre'] ?? '';
+        } elseif ($tab === 'collab') {
+            $newPost['performanceDate'] = $_POST['performanceDate'] ?? '';
+            $newPost['location'] = $_POST['location'] ?? '';
+        }
+        
+        $_SESSION['communityPosts'][$tab][] = $newPost;
+        header('Location: index.php?page=split&appPage=community&tab=' . $tab);
+        exit;
+    }
+}
+
+// 댓글 작성 처리
+if (isset($_POST['writeComment'])) {
+    $postId = (int)$_POST['postId'];
+    $tab = $_POST['tab'] ?? 'free';
+    $comment = $_POST['comment'] ?? '';
+    $author = $_SESSION['userType'] === 'artist' ? '아티스트' : '사용자';
+    
+    if ($comment) {
+        $newComment = [
+            'id' => time(),
+            'postId' => $postId,
+            'tab' => $tab,
+            'author' => $author,
+            'content' => $comment,
+            'date' => date('Y-m-d H:i')
+        ];
+        
+        if (!isset($_SESSION['communityComments'][$tab])) {
+            $_SESSION['communityComments'][$tab] = [];
+        }
+        $_SESSION['communityComments'][$tab][] = $newComment;
+        
+        // 댓글 수 증가
+        foreach ($_SESSION['communityPosts'][$tab] as &$post) {
+            if ($post['id'] == $postId) {
+                $post['comments'] = ($post['comments'] ?? 0) + 1;
+                break;
+            }
+        }
+        
+        header('Location: index.php?page=split&appPage=community&tab=' . $tab . '&postId=' . $postId);
+        exit;
+    }
 }
 
 // 공연 필터링
@@ -78,6 +142,17 @@ if ($selectedLocation) {
     $filteredPerformances = array_filter($samplePerformances, function($perf) use ($selectedLocation) {
         return stripos($perf['location'], $selectedLocation) !== false;
     });
+}
+
+// 커뮤니티 게시글 데이터 (세션에서 가져오기, 없으면 기본값 사용)
+if (isset($_SESSION['communityPosts'])) {
+    // 세션 데이터와 기본 데이터 병합
+    foreach ($communityPosts as $tab => $defaultPosts) {
+        if (isset($_SESSION['communityPosts'][$tab])) {
+            // 세션 데이터를 앞에 추가 (최신순)
+            $communityPosts[$tab] = array_merge($_SESSION['communityPosts'][$tab], $defaultPosts);
+        }
+    }
 }
 
 // 지도 중심 좌표 설정
@@ -131,41 +206,12 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
     <div class="fixed inset-0 glow-effect -z-10"></div>
     
     <div class="min-h-screen relative z-0">
-        <?php 
-        // split 페이지가 메인이므로 일반 헤더는 사용하지 않음
-        // 필요시 아래 주석을 해제하여 사용 가능
-        /*
-        if ($page !== 'split'): 
-            include __DIR__ . '/includes/header.php'; 
-        endif;
-        */
-        ?>
-
-        <main class="<?= ($page === 'landing' || ($page ?? '') === 'landing') ? '' : 'max-w-6xl mx-auto px-4 py-8' ?>">
+        <main>
             <?php
             switch ($page) {
                 case 'split':
                     include __DIR__ . '/pages/split.php';
                     break;
-                // 기존 웹 페이지들은 더 이상 사용하지 않음 (split 페이지가 메인)
-                // 필요시 아래 주석을 해제하여 사용 가능
-                /*
-                case 'landing':
-                    include __DIR__ . '/pages/landing.php';
-                    break;
-                case 'home':
-                    include __DIR__ . '/pages/home.php';
-                    break;
-                case 'register':
-                    include __DIR__ . '/pages/register.php';
-                    break;
-                case 'booking':
-                    include __DIR__ . '/pages/booking.php';
-                    break;
-                case 'community':
-                    include __DIR__ . '/board/community.php';
-                    break;
-                */
                 default:
                     // 기본값: 좌우 분할 페이지 (메인 페이지)
                     include __DIR__ . '/pages/split.php';

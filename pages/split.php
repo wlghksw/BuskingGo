@@ -18,7 +18,7 @@ if ($userType === 'viewer') {
 ?>
 <div class="min-h-screen flex flex-col lg:flex-row">
     <!-- 왼쪽: 랜딩 페이지 -->
-    <div class="w-full lg:w-1/2 min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div class="w-full lg:w-2/5 min-h-screen flex items-center justify-center relative overflow-hidden">
         <!-- 랜딩 페이지 콘텐츠 -->
         <div class="relative z-10 px-8 py-12 text-center">
             <!-- 로고 -->
@@ -74,10 +74,10 @@ if ($userType === 'viewer') {
     </div>
 
     <!-- 오른쪽: 모바일 앱 UI (모든 기능 포함) -->
-    <div class="w-full lg:w-1/2 min-h-screen flex items-center justify-center relative overflow-hidden p-4 lg:p-8">
+    <div class="w-full lg:w-3/5 min-h-screen flex items-center justify-center relative overflow-hidden p-4 lg:p-8">
         
         <!-- 모바일 앱 UI 컨테이너 -->
-        <div class="relative z-10 w-full max-w-sm bg-gray-900 rounded-3xl shadow-2xl overflow-hidden" style="height: 90vh; max-height: 800px;">
+        <div class="relative z-10 w-full max-w-md bg-gray-900 rounded-3xl shadow-2xl overflow-hidden" style="height: 95vh; max-height: 900px;">
             <!-- 모바일 헤더 -->
             <header class="bg-gray-900 border-b border-gray-800">
                 <div class="px-4 py-3 flex items-center justify-between">
@@ -102,7 +102,7 @@ if ($userType === 'viewer') {
             </header>
             
             <!-- 스크롤 가능한 콘텐츠 영역 -->
-            <div id="app-content" class="overflow-y-auto" style="height: calc(90vh - 60px - 70px); max-height: calc(800px - 60px - 70px);">
+            <div id="app-content" class="overflow-y-auto" style="height: calc(95vh - 60px - 70px); max-height: calc(900px - 60px - 70px);">
                 <?php
                 // 앱 내 페이지 로드
                 switch($appPage) {

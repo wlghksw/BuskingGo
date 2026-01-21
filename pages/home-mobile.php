@@ -27,14 +27,14 @@
 </div>
 
 <!-- 실시간 공연 지도 섹션 -->
-<div class="bg-white rounded-2xl p-4 mx-4 mb-4 shadow-lg">
+<div class="bg-gray-800/80 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 mx-4 mb-4 shadow-xl">
     <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-bold text-gray-900">실시간 공연 지도</h2>
+        <h2 class="text-lg font-bold text-white">실시간 공연 지도</h2>
         <!-- 지역 선택 드롭다운 -->
         <form method="GET" class="flex items-center gap-2">
             <input type="hidden" name="page" value="split">
             <input type="hidden" name="appPage" value="home">
-            <select name="location" onchange="this.form.submit()" class="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-purple-500">
+            <select name="location" onchange="this.form.submit()" class="px-3 py-1.5 bg-gray-900/50 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-purple-500">
                 <option value="">전체 지역</option>
                 <?php foreach ($locationCoordinates as $loc => $coords): ?>
                 <option value="<?= htmlspecialchars($loc) ?>" <?= $selectedLocation === $loc ? 'selected' : '' ?>>
@@ -45,20 +45,20 @@
         </form>
     </div>
     <!-- Leaflet 지도 컨테이너 -->
-    <div id="map" class="rounded-xl overflow-hidden border border-gray-200" style="height: 250px;"></div>
+    <div id="map" class="rounded-xl overflow-hidden border border-gray-600/50" style="height: 250px;"></div>
 </div>
 
 <!-- 공연 목록 -->
 <div class="px-4 space-y-3 pb-4">
     <?php foreach ($filteredPerformances as $perf): ?>
-    <div onclick="showPerformanceModal(<?= htmlspecialchars(json_encode($perf)) ?>)" class="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-all cursor-pointer">
+    <div onclick="showPerformanceModal(<?= htmlspecialchars(json_encode($perf)) ?>)" class="bg-gray-800/80 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 shadow-lg hover:shadow-xl hover:border-purple-500/50 transition-all cursor-pointer">
         <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-3 flex-1">
                 <!-- 공연 아이콘 -->
                 <div class="text-4xl"><?= htmlspecialchars($perf['image']) ?></div>
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
-                        <h3 class="text-lg font-bold text-gray-900"><?= htmlspecialchars($perf['buskerName']) ?></h3>
+                        <h3 class="text-lg font-bold text-white"><?= htmlspecialchars($perf['buskerName']) ?></h3>
                         <?php if ($perf['status'] === '진행중'): ?>
                         <span class="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold">
                             LIVE
@@ -66,7 +66,7 @@
                         <?php endif; ?>
                     </div>
                     <!-- 위치와 거리 -->
-                    <div class="flex items-center gap-4 text-sm text-gray-600 mb-1">
+                    <div class="flex items-center gap-4 text-sm text-gray-300 mb-1">
                         <span class="flex items-center gap-1">
                             <i data-lucide="map-pin" style="width: 14px; height: 14px;"></i>
                             <?= htmlspecialchars($perf['location']) ?>
@@ -77,7 +77,7 @@
                         </span>
                     </div>
                     <!-- 시간과 평점 -->
-                    <div class="flex items-center gap-4 text-sm text-gray-600">
+                    <div class="flex items-center gap-4 text-sm text-gray-300">
                         <span class="flex items-center gap-1">
                             <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
                             <?= htmlspecialchars($perf['startTime']) ?> - <?= htmlspecialchars($perf['endTime']) ?>
@@ -90,12 +90,12 @@
                 </div>
             </div>
             <!-- 찜하기 버튼 -->
-            <a href="index.php?page=split&appPage=home&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-100 rounded-full transition-all ml-2">
+            <a href="index.php?page=split&appPage=home&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-700/50 rounded-full transition-all ml-2">
                 <i data-lucide="heart" class="<?= in_array($perf['id'], $_SESSION['favorites']) ? 'fill-red-500 text-red-500' : 'text-gray-400' ?>" style="width: 20px; height: 20px;"></i>
             </a>
         </div>
         <!-- 공연 설명 -->
-        <p class="text-sm text-gray-500 mt-2"><?= htmlspecialchars($perf['description']) ?></p>
+        <p class="text-sm text-gray-400 mt-2"><?= htmlspecialchars($perf['description']) ?></p>
     </div>
     <?php endforeach; ?>
 </div>

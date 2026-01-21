@@ -10,7 +10,7 @@ function showPerformanceModal(performance) {
     const isFavorite = favorites.includes(performance.id);
     
     const modalHTML = `
-        <div class="bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700 shadow-xl" onclick="event.stopPropagation()">
+        <div class="bg-gray-800/90 backdrop-blur-xl rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700/50 shadow-2xl" onclick="event.stopPropagation()">
             <div class="p-6">
                 <div class="flex items-start justify-between mb-6">
                     <div class="flex items-center gap-4">

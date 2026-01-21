@@ -33,14 +33,14 @@ foreach ($samplePerformances as $perf) {
     <!-- 찜한 공연 목록 -->
     <div class="px-4 space-y-3 pb-4">
         <?php foreach ($favoritePerformances as $perf): ?>
-        <div onclick="showPerformanceModal(<?= htmlspecialchars(json_encode($perf)) ?>)" class="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-all cursor-pointer">
+        <div onclick="showPerformanceModal(<?= htmlspecialchars(json_encode($perf)) ?>)" class="bg-gray-800/80 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-4 shadow-lg hover:shadow-xl hover:border-purple-500/50 transition-all cursor-pointer">
             <div class="flex items-start justify-between mb-3">
                 <div class="flex items-center gap-3 flex-1">
                     <!-- 공연 아이콘 -->
                     <div class="text-4xl"><?= htmlspecialchars($perf['image']) ?></div>
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-1">
-                            <h3 class="text-lg font-bold text-gray-900"><?= htmlspecialchars($perf['buskerName']) ?></h3>
+                            <h3 class="text-lg font-bold text-white"><?= htmlspecialchars($perf['buskerName']) ?></h3>
                             <?php if ($perf['status'] === '진행중'): ?>
                             <span class="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold">
                                 LIVE
@@ -48,7 +48,7 @@ foreach ($samplePerformances as $perf) {
                             <?php endif; ?>
                         </div>
                         <!-- 위치와 거리 -->
-                        <div class="flex items-center gap-4 text-sm text-gray-600 mb-1">
+                        <div class="flex items-center gap-4 text-sm text-gray-300 mb-1">
                             <span class="flex items-center gap-1">
                                 <i data-lucide="map-pin" style="width: 14px; height: 14px;"></i>
                                 <?= htmlspecialchars($perf['location']) ?>
@@ -59,7 +59,7 @@ foreach ($samplePerformances as $perf) {
                             </span>
                         </div>
                         <!-- 시간과 평점 -->
-                        <div class="flex items-center gap-4 text-sm text-gray-600">
+                        <div class="flex items-center gap-4 text-sm text-gray-300">
                             <span class="flex items-center gap-1">
                                 <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
                                 <?= htmlspecialchars($perf['startTime']) ?> - <?= htmlspecialchars($perf['endTime']) ?>
@@ -72,12 +72,12 @@ foreach ($samplePerformances as $perf) {
                     </div>
                 </div>
                 <!-- 찜하기 버튼 (이미 찜한 상태) -->
-                <a href="index.php?page=split&appPage=favorites&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-100 rounded-full transition-all ml-2">
+                <a href="index.php?page=split&appPage=favorites&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-700/50 rounded-full transition-all ml-2">
                     <i data-lucide="heart" class="fill-red-500 text-red-500" style="width: 20px; height: 20px;"></i>
                 </a>
             </div>
             <!-- 공연 설명 -->
-            <p class="text-sm text-gray-500 mt-2"><?= htmlspecialchars($perf['description']) ?></p>
+            <p class="text-sm text-gray-400 mt-2"><?= htmlspecialchars($perf['description']) ?></p>
         </div>
         <?php endforeach; ?>
     </div>
