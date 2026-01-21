@@ -1,0 +1,28 @@
+# Apache 설정 파일
+# PWA 및 PHP 라우팅 설정
+
+# 서비스 워커 MIME 타입 설정
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType application/manifest+json .webmanifest
+    AddType application/json .json
+</IfModule>
+
+# 서비스 워커 캐시 헤더 설정
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|json|webmanifest)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# PHP 설정
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>
+
+# 디렉토리 인덱싱 비활성화
+Options -Indexes
+
+# 기본 인덱스 파일
+DirectoryIndex index.php index.html
