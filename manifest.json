@@ -1,0 +1,42 @@
+{
+  "name": "버스킹고 - 내 주변 버스킹 찾기",
+  "short_name": "버스킹고",
+  "description": "당신의 일상 가까이에서 울리는 음악",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#9333ea",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["music", "entertainment", "lifestyle"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "공연 찾기",
+      "short_name": "공연 찾기",
+      "description": "주변 버스킹 공연 찾기",
+      "url": "/?page=split&appPage=home",
+      "icons": [{ "src": "assets/images/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "커뮤니티",
+      "short_name": "커뮤니티",
+      "description": "아티스트 커뮤니티",
+      "url": "/?page=split&appPage=community",
+      "icons": [{ "src": "assets/images/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
