@@ -314,8 +314,8 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
             <div id="loginTab" class="space-y-4">
                 <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-bold mb-2 text-gray-300">이메일 *</label>
-                        <input type="email" name="email" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="example@email.com" />
+                        <label class="block text-sm font-bold mb-2 text-gray-300">아이디 *</label>
+                        <input type="text" name="username" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="아이디를 입력하세요" />
                     </div>
                     <div>
                         <label class="block text-sm font-bold mb-2 text-gray-300">비밀번호 *</label>
@@ -336,9 +336,9 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
                         
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-bold mb-2 text-gray-300">이메일 *</label>
-                                <input type="email" name="email" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="example@email.com" />
-                                <p class="text-xs text-gray-500 mt-1">계정 ID 및 알림 수신용</p>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">아이디 *</label>
+                                <input type="text" name="username" required pattern="[a-zA-Z0-9_]{3,20}" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="3-20자의 영문, 숫자, 언더스코어" />
+                                <p class="text-xs text-gray-500 mt-1">3-20자의 영문, 숫자, 언더스코어(_)만 사용 가능</p>
                             </div>
                             
                             <div>
@@ -542,7 +542,7 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
             event.preventDefault();
             const formData = new FormData(event.target);
             const data = {
-                email: formData.get('email'),
+                username: formData.get('username'),
                 password: formData.get('password')
             };
             
@@ -631,7 +631,7 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
             
             // 기본 데이터
             const data = {
-                email: formData.get('email'),
+                username: formData.get('username'),
                 password: formData.get('password'),
                 name: formData.get('name'),
                 phone: formData.get('phone'),
