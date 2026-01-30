@@ -19,8 +19,6 @@
 | user_type | ENUM('viewer', 'artist') | NOT NULL | 사용자 유형 | register.php, auth.php |
 | phone | VARCHAR(20) | NULL | 연락처 | register.php |
 | interested_location | VARCHAR(50) | NULL | 관심 지역 | register.php, index.php |
-| email_notification | BOOLEAN | DEFAULT FALSE | 이메일 마케팅 수신 | register.php |
-| sms_notification | BOOLEAN | DEFAULT FALSE | SMS 마케팅 수신 | register.php |
 | last_login_at | DATETIME | NULL | 마지막 로그인 시간 | auth.php |
 | created_at | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일시 | register.php |
 
@@ -192,8 +190,6 @@ CREATE TABLE users (
     user_type ENUM('viewer', 'artist') NOT NULL,
     phone VARCHAR(20) NULL,
     interested_location VARCHAR(50) NULL,
-    email_notification BOOLEAN DEFAULT FALSE,
-    sms_notification BOOLEAN DEFAULT FALSE,
     last_login_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_email (email),
@@ -345,7 +341,7 @@ CREATE TABLE favorites (
 ### 사용자 로그인
 ```sql
 SELECT id, email, name, user_type, phone, interested_location, 
-       email_notification, sms_notification, last_login_at, created_at
+       last_login_at, created_at
 FROM users 
 WHERE email = ?;
 ```
