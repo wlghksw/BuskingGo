@@ -21,6 +21,30 @@ $locationCoordinates = [
 // 요일 배열 (버스커 등록 폼에서 사용)
 $days = ['월', '화', '수', '목', '금', '토', '일'];
 
+// 공연 장르 목록
+$genres = [
+    '어쿠스틱' => 'acoustic',
+    '록' => 'rock',
+    '재즈' => 'jazz',
+    '힙합' => 'hiphop',
+    '댄스' => 'dance',
+    '마술' => 'magic',
+    '퍼포먼스' => 'performance',
+    '클래식' => 'classic',
+    '팝' => 'pop',
+    'R&B' => 'rnb',
+    '일렉트로닉' => 'electronic',
+    '기타' => 'other'
+];
+
+// 공연 시간대
+$timeSlots = [
+    '주중 낮' => 'weekday_day',
+    '주중 저녁' => 'weekday_evening',
+    '주말 낮' => 'weekend_day',
+    '주말 저녁' => 'weekend_evening'
+];
+
 // 기본 위치 좌표 (천안)
 $defaultLocation = ['lat' => 36.8151, 'lng' => 127.1139];
 

@@ -59,6 +59,80 @@ if (isset($_GET['location'])) {
     exit;
 }
 
+// 버스커 등록 처리
+if (isset($_POST['name']) && isset($_POST['phone']) && !isset($_POST['writePost']) && !isset($_POST['writeComment'])) {
+    // 버스커 등록 폼에서 온 요청인지 확인
+    $name = $_POST['name'] ?? '';
+    $phone = $_POST['phone'] ?? '';
+    
+    if ($name && $phone) {
+        // 세션에 버스커 데이터 초기화
+        if (!isset($_SESSION['buskers'])) {
+            $_SESSION['buskers'] = [];
+        }
+        
+        // 새 버스커 데이터 생성
+        $newBusker = [
+            'id' => time() . rand(1000, 9999),
+            'name' => $name,
+            'teamSize' => isset($_POST['teamSize']) ? (int)$_POST['teamSize'] : 1,
+            'equipment' => $_POST['equipment'] ?? '',
+            'phone' => $phone,
+            'bio' => $_POST['bio'] ?? '',
+            'availableDays' => isset($_POST['availableDays']) && $_POST['availableDays'] ? explode(',', $_POST['availableDays']) : [],
+            'preferredTime' => $_POST['preferredTime'] ?? '',
+            'preferredLocation' => $_POST['preferredLocation'] ?? '',
+            'createdAt' => date('Y-m-d H:i:s'),
+            'rating' => 0,
+            'performanceCount' => 0
+        ];
+        
+        $_SESSION['buskers'][] = $newBusker;
+        header('Location: index.php?page=split&appPage=register&success=1');
+        exit;
+    }
+}
+
+// 공연 예약 처리
+if (isset($_POST['organizerName']) && isset($_POST['organizerType']) && isset($_POST['location']) && isset($_POST['date']) && !isset($_POST['writePost']) && !isset($_POST['writeComment'])) {
+    // 공연 예약 폼에서 온 요청인지 확인
+    $organizerName = $_POST['organizerName'] ?? '';
+    $organizerType = $_POST['organizerType'] ?? '';
+    $location = $_POST['location'] ?? '';
+    $date = $_POST['date'] ?? '';
+    $startTime = $_POST['startTime'] ?? '';
+    $endTime = $_POST['endTime'] ?? '';
+    
+    if ($organizerName && $organizerType && $location && $date && $startTime && $endTime) {
+        // 세션에 예약 데이터 초기화
+        if (!isset($_SESSION['bookings'])) {
+            $_SESSION['bookings'] = [];
+        }
+        
+        // 새 예약 데이터 생성
+        $newBooking = [
+            'id' => time() . rand(1000, 9999),
+            'organizerName' => $organizerName,
+            'organizerType' => $organizerType,
+            'location' => $location,
+            'lat' => $_POST['lat'] ?? null,
+            'lng' => $_POST['lng'] ?? null,
+            'date' => $date,
+            'startTime' => $startTime,
+            'endTime' => $endTime,
+            'additionalRequest' => $_POST['additionalRequest'] ?? '',
+            'buskerId' => $_POST['buskerId'] ?? null,
+            'status' => '대기중',
+            'createdAt' => date('Y-m-d H:i:s'),
+            'createdBy' => $_SESSION['userType'] ?? 'viewer'
+        ];
+        
+        $_SESSION['bookings'][] = $newBooking;
+        header('Location: index.php?page=split&appPage=booking&success=1');
+        exit;
+    }
+}
+
 // 커뮤니티 게시글 및 댓글 초기화 (세션에 저장)
 if (!isset($_SESSION['communityPosts'])) {
     $_SESSION['communityPosts'] = $communityPosts;
@@ -223,23 +297,196 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
     <!-- 모달들 -->
     <div id="userTypeModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
         <div class="bg-gray-800 rounded-2xl max-w-2xl w-full p-8 shadow-xl border border-gray-700">
-            <h2 class="text-3xl font-bold mb-6 text-white text-center">사용자 유형 선택</h2>
-            <form method="POST" class="grid grid-cols-2 gap-4">
-                <input type="hidden" name="page" value="<?= htmlspecialchars($page === 'split' ? 'split' : ($page ?: 'split')) ?>">
-                <?php if ($page === 'split'): ?>
-                <input type="hidden" name="appPage" value="<?= htmlspecialchars($_GET['appPage'] ?? 'home') ?>">
-                <?php endif; ?>
-                <button type="submit" name="userType" value="viewer" class="p-6 border-2 border-gray-700 rounded-xl hover:border-purple-500 hover:bg-purple-900/20 transition-all text-left">
-                    <i data-lucide="user" class="text-purple-400 mb-3" style="width: 32px; height: 32px;"></i>
-                    <h3 class="font-bold text-lg mb-2 text-white">관람자</h3>
-                    <p class="text-sm text-gray-400">일반 시민</p>
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-3xl font-bold text-white">로그인 / 회원가입</h2>
+                <button onclick="closeUserTypeModal()" class="p-2 hover:bg-gray-700 rounded-full text-gray-400">
+                    <i data-lucide="x" style="width: 24px; height: 24px;"></i>
                 </button>
-                <button type="submit" name="userType" value="artist" class="p-6 border-2 border-gray-700 rounded-xl hover:border-purple-500 hover:bg-purple-900/20 transition-all text-left">
-                    <i data-lucide="music" class="text-purple-400 mb-3" style="width: 32px; height: 32px;"></i>
-                    <h3 class="font-bold text-lg mb-2 text-white">아티스트</h3>
-                    <p class="text-sm text-gray-400">버스커</p>
-                </button>
-            </form>
+            </div>
+            
+            <!-- 탭 전환 -->
+            <div class="flex gap-2 mb-6 border-b border-gray-700">
+                <button onclick="showLoginTab()" id="loginTabBtn" class="px-4 py-2 font-bold text-purple-400 border-b-2 border-purple-400">로그인</button>
+                <button onclick="showRegisterTab()" id="registerTabBtn" class="px-4 py-2 font-bold text-gray-400 hover:text-gray-300">회원가입</button>
+            </div>
+            
+            <!-- 로그인 탭 -->
+            <div id="loginTab" class="space-y-4">
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-300">이메일 *</label>
+                        <input type="email" name="email" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="example@email.com" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-2 text-gray-300">비밀번호 *</label>
+                        <input type="password" name="password" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="비밀번호를 입력하세요" />
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 rounded-lg hover:scale-105 transition-transform">
+                        로그인
+                    </button>
+                </form>
+            </div>
+            
+            <!-- 회원가입 탭 -->
+            <div id="registerTab" class="hidden space-y-4 max-h-[80vh] overflow-y-auto">
+                <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4">
+                    <!-- 기본 정보 (공통) -->
+                    <div class="border-b border-gray-700 pb-4">
+                        <h3 class="text-lg font-bold mb-4 text-white">기본 정보</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">이메일 *</label>
+                                <input type="email" name="email" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="example@email.com" />
+                                <p class="text-xs text-gray-500 mt-1">계정 ID 및 알림 수신용</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">비밀번호 *</label>
+                                <input type="password" name="password" id="registerPassword" required minlength="8" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="8자 이상, 영문+숫자 조합" />
+                                <p class="text-xs text-gray-500 mt-1">8자 이상, 영문과 숫자를 포함해야 합니다</p>
+                                <div id="passwordStrength" class="text-xs mt-1"></div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">이름/닉네임 *</label>
+                                <input type="text" name="name" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="서비스 내 표시명" />
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">연락처 *</label>
+                                <input type="tel" name="phone" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="010-0000-0000" />
+                                <p class="text-xs text-gray-500 mt-1">예약 및 매칭 시 연락용</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">사용자 유형 *</label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <label class="p-4 border-2 border-gray-700 rounded-xl hover:border-purple-500 hover:bg-purple-900/20 transition-all cursor-pointer">
+                                        <input type="radio" name="userType" value="viewer" required class="mr-2" onchange="updateUserTypeFields()" />
+                                        <span class="text-white">관람자</span>
+                                    </label>
+                                    <label class="p-4 border-2 border-gray-700 rounded-xl hover:border-purple-500 hover:bg-purple-900/20 transition-all cursor-pointer">
+                                        <input type="radio" name="userType" value="artist" required class="mr-2" onchange="updateUserTypeFields()" />
+                                        <span class="text-white">버스커</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 관람자 추가 정보 -->
+                    <div id="viewerFields" class="hidden border-b border-gray-700 pb-4">
+                        <h3 class="text-lg font-bold mb-4 text-white">관람자 정보</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">관심 장르 (선택)</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <?php foreach ($genres as $genreName => $genreValue): ?>
+                                    <label class="flex items-center p-2 bg-gray-900 border border-gray-700 rounded-lg hover:border-purple-500 cursor-pointer">
+                                        <input type="checkbox" name="interestedGenres[]" value="<?= $genreValue ?>" class="mr-2" />
+                                        <span class="text-sm text-white"><?= $genreName ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">선호하는 공연 시간대 (선택)</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <?php foreach ($timeSlots as $timeName => $timeValue): ?>
+                                    <label class="flex items-center p-2 bg-gray-900 border border-gray-700 rounded-lg hover:border-purple-500 cursor-pointer">
+                                        <input type="checkbox" name="preferredTimeSlots[]" value="<?= $timeValue ?>" class="mr-2" />
+                                        <span class="text-sm text-white"><?= $timeName ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 버스커 추가 정보 -->
+                    <div id="artistFields" class="hidden border-b border-gray-700 pb-4">
+                        <h3 class="text-lg font-bold mb-4 text-white">버스커 정보</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">팀명/예명 *</label>
+                                <input type="text" name="teamName" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="공개 프로필명" />
+                                <p class="text-xs text-gray-500 mt-1">공개 프로필에 표시될 이름</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">공연 장르 * (복수 선택 가능)</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <?php foreach ($genres as $genreName => $genreValue): ?>
+                                    <label class="flex items-center p-2 bg-gray-900 border border-gray-700 rounded-lg hover:border-purple-500 cursor-pointer">
+                                        <input type="checkbox" name="performanceGenres[]" value="<?= $genreValue ?>" class="mr-2" />
+                                        <span class="text-sm text-white"><?= $genreName ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">대표 연락처 *</label>
+                                <input type="tel" name="contactPhone" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="010-0000-0000" />
+                                <p class="text-xs text-gray-500 mt-1">예약 문의용 연락처</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">활동 지역 *</label>
+                                <select name="activityLocation" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white">
+                                    <option value="">선택하세요</option>
+                                    <?php foreach ($locationCoordinates as $loc => $coords): ?>
+                                    <option value="<?= htmlspecialchars($loc) ?>"><?= htmlspecialchars($loc) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">주요 공연 지역</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 선택 정보 (공통) -->
+                    <div class="border-b border-gray-700 pb-4">
+                        <h3 class="text-lg font-bold mb-4 text-white">선택 정보</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">관심 지역</label>
+                                <select name="interestedLocation" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white">
+                                    <option value="">선택하세요</option>
+                                    <?php foreach ($locationCoordinates as $loc => $coords): ?>
+                                    <option value="<?= htmlspecialchars($loc) ?>"><?= htmlspecialchars($loc) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">주로 활동하거나 공연을 찾는 지역</p>
+                            </div>
+                            
+                            <div>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="emailNotification" value="1" class="w-4 h-4" />
+                                    <span class="text-sm text-gray-300">이메일 마케팅 수신 동의</span>
+                                </label>
+                            </div>
+                            
+                            <div>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="smsNotification" value="1" class="w-4 h-4" />
+                                    <span class="text-sm text-gray-300">SMS 마케팅 수신 동의</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 rounded-lg hover:scale-105 transition-transform">
+                        회원가입
+                    </button>
+                </form>
+            </div>
+            
+            <div id="authMessage" class="mt-4 text-center text-sm"></div>
         </div>
     </div>
 
@@ -256,14 +503,209 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
         // 사용자 유형 모달 표시
         function showUserTypeModal() {
             document.getElementById('userTypeModal').classList.remove('hidden');
+            showLoginTab(); // 기본으로 로그인 탭 표시
         }
         
-        // 모달 닫기
+        function closeUserTypeModal() {
+            document.getElementById('userTypeModal').classList.add('hidden');
+            document.getElementById('authMessage').textContent = '';
+        }
+        
+        // 모달 닫기 (배경 클릭)
         document.getElementById('userTypeModal').addEventListener('click', function(e) {
             if (e.target === this) {
-                this.classList.add('hidden');
+                closeUserTypeModal();
             }
         });
+        
+        // 탭 전환 함수들
+        function showLoginTab() {
+            document.getElementById('loginTab').classList.remove('hidden');
+            document.getElementById('registerTab').classList.add('hidden');
+            document.getElementById('loginTabBtn').classList.add('text-purple-400', 'border-b-2', 'border-purple-400');
+            document.getElementById('loginTabBtn').classList.remove('text-gray-400');
+            document.getElementById('registerTabBtn').classList.remove('text-purple-400', 'border-b-2', 'border-purple-400');
+            document.getElementById('registerTabBtn').classList.add('text-gray-400');
+        }
+        
+        function showRegisterTab() {
+            document.getElementById('loginTab').classList.add('hidden');
+            document.getElementById('registerTab').classList.remove('hidden');
+            document.getElementById('registerTabBtn').classList.add('text-purple-400', 'border-b-2', 'border-purple-400');
+            document.getElementById('registerTabBtn').classList.remove('text-gray-400');
+            document.getElementById('loginTabBtn').classList.remove('text-purple-400', 'border-b-2', 'border-purple-400');
+            document.getElementById('loginTabBtn').classList.add('text-gray-400');
+        }
+        
+        // 로그인 처리
+        async function handleLogin(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = {
+                email: formData.get('email'),
+                password: formData.get('password')
+            };
+            
+            try {
+                const response = await fetch('/api/auth.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('authMessage').textContent = '로그인 성공!';
+                    document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-green-400';
+                    setTimeout(() => {
+                        closeUserTypeModal();
+                        location.reload();
+                    }, 1000);
+                } else {
+                    document.getElementById('authMessage').textContent = result.message || '로그인에 실패했습니다.';
+                    document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-red-400';
+                }
+            } catch (error) {
+                document.getElementById('authMessage').textContent = '오류가 발생했습니다.';
+                document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-red-400';
+            }
+        }
+        
+        // 사용자 유형에 따라 필드 표시/숨김
+        function updateUserTypeFields() {
+            const userType = document.querySelector('input[name="userType"]:checked')?.value;
+            const viewerFields = document.getElementById('viewerFields');
+            const artistFields = document.getElementById('artistFields');
+            
+            if (userType === 'viewer') {
+                viewerFields.classList.remove('hidden');
+                artistFields.classList.add('hidden');
+                // 관람자 필드는 선택사항이므로 required 제거
+                document.querySelectorAll('#artistFields [required]').forEach(el => el.removeAttribute('required'));
+            } else if (userType === 'artist') {
+                viewerFields.classList.add('hidden');
+                artistFields.classList.remove('hidden');
+                // 버스커 필수 필드 설정
+                document.querySelector('input[name="teamName"]').setAttribute('required', 'required');
+                document.querySelector('input[name="contactPhone"]').setAttribute('required', 'required');
+                document.querySelector('select[name="activityLocation"]').setAttribute('required', 'required');
+            }
+        }
+        
+        // 비밀번호 강도 검사
+        document.getElementById('registerPassword')?.addEventListener('input', function(e) {
+            const password = e.target.value;
+            const strengthDiv = document.getElementById('passwordStrength');
+            
+            if (password.length === 0) {
+                strengthDiv.textContent = '';
+                return;
+            }
+            
+            const hasLetter = /[a-zA-Z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            const isLongEnough = password.length >= 8;
+            
+            let strength = [];
+            if (!isLongEnough) strength.push('8자 이상');
+            if (!hasLetter) strength.push('영문 포함');
+            if (!hasNumber) strength.push('숫자 포함');
+            
+            if (strength.length === 0) {
+                strengthDiv.textContent = '✓ 비밀번호 조건을 만족합니다';
+                strengthDiv.className = 'text-xs mt-1 text-green-400';
+            } else {
+                strengthDiv.textContent = '필요: ' + strength.join(', ');
+                strengthDiv.className = 'text-xs mt-1 text-red-400';
+            }
+        });
+        
+        // 회원가입 처리
+        async function handleRegister(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const userType = formData.get('userType');
+            
+            // 기본 데이터
+            const data = {
+                email: formData.get('email'),
+                password: formData.get('password'),
+                name: formData.get('name'),
+                phone: formData.get('phone'),
+                userType: userType
+            };
+            
+            // 비밀번호 유효성 검사
+            const password = data.password;
+            const hasLetter = /[a-zA-Z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            const isLongEnough = password.length >= 8;
+            
+            if (!isLongEnough || !hasLetter || !hasNumber) {
+                document.getElementById('authMessage').textContent = '비밀번호는 8자 이상, 영문과 숫자를 포함해야 합니다.';
+                document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-red-400';
+                return;
+            }
+            
+            // 선택 정보
+            data.interestedLocation = formData.get('interestedLocation') || '';
+            data.emailNotification = formData.get('emailNotification') === '1';
+            data.smsNotification = formData.get('smsNotification') === '1';
+            
+            // 사용자 유형별 추가 정보
+            if (userType === 'viewer') {
+                data.interestedGenres = formData.getAll('interestedGenres[]');
+                data.preferredTimeSlots = formData.getAll('preferredTimeSlots[]');
+            } else if (userType === 'artist') {
+                data.teamName = formData.get('teamName');
+                data.performanceGenres = formData.getAll('performanceGenres[]');
+                data.contactPhone = formData.get('contactPhone');
+                data.activityLocation = formData.get('activityLocation');
+                
+                // 버스커 필수 필드 검증
+                if (!data.teamName || !data.contactPhone || !data.activityLocation) {
+                    document.getElementById('authMessage').textContent = '버스커 필수 정보를 모두 입력해주세요.';
+                    document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-red-400';
+                    return;
+                }
+                
+                if (!data.performanceGenres || data.performanceGenres.length === 0) {
+                    document.getElementById('authMessage').textContent = '최소 1개 이상의 공연 장르를 선택해주세요.';
+                    document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-red-400';
+                    return;
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/register.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('authMessage').textContent = '회원가입 성공! 자동으로 로그인됩니다.';
+                    document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-green-400';
+                    setTimeout(() => {
+                        closeUserTypeModal();
+                        location.reload();
+                    }, 1000);
+                } else {
+                    document.getElementById('authMessage').textContent = result.message || '회원가입에 실패했습니다.';
+                    document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-red-400';
+                }
+            } catch (error) {
+                document.getElementById('authMessage').textContent = '오류가 발생했습니다.';
+                document.getElementById('authMessage').className = 'mt-4 text-center text-sm text-red-400';
+            }
+        }
         
         // PWA Service Worker 등록
         if ('serviceWorker' in navigator) {
