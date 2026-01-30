@@ -3,6 +3,11 @@
 ## 개요
 현재 웹 애플리케이션에서 **실제로 코드에서 사용하는 필드만** 포함한 최소한의 스키마입니다.
 
+**참고:** 
+- `lat`, `lng` (위도/경도) 필드는 지도 마커 표시용입니다. 
+- 지도 기능을 사용하지 않는다면 이 필드들을 제거해도 됩니다.
+- `location` (문자열) 필드만으로도 충분히 동작합니다.
+
 ---
 
 ## 필수 테이블 (7개)
@@ -61,8 +66,8 @@
 | busker_id | BIGINT UNSIGNED | FOREIGN KEY (buskers.id), NULL | 버스커 ID | performances.php |
 | busker_name | VARCHAR(100) | NOT NULL | 버스커명 | performances.php, index.php, constants.php |
 | location | VARCHAR(200) | NOT NULL | 공연 장소 | performances.php, index.php |
-| lat | DECIMAL(10, 8) | NULL | 위도 | performances.php, index.php |
-| lng | DECIMAL(11, 8) | NULL | 경도 | performances.php, index.php |
+| lat | DECIMAL(10, 8) | NULL | 위도 (지도 마커용, 선택) | performances.php, index.php |
+| lng | DECIMAL(11, 8) | NULL | 경도 (지도 마커용, 선택) | performances.php, index.php |
 | start_time | TIME | NOT NULL | 시작 시간 | performances.php, index.php |
 | end_time | TIME | NOT NULL | 종료 시간 | performances.php, index.php |
 | status | ENUM('예정', '진행중', '종료', '취소') | DEFAULT '예정' | 공연 상태 | performances.php, index.php |
@@ -75,7 +80,8 @@
 **제거된 필드:**
 - `performance_date` - 샘플 데이터에 없음, start_time/end_time만 사용
 
-**인덱스:** `idx_busker_id`, `idx_location`, `idx_status`, `idx_lat_lng`
+**인덱스:** `idx_busker_id`, `idx_location`, `idx_status`
+**참고:** `lat`, `lng`는 지도 마커 표시용 (선택사항). 지도 기능을 사용하지 않으면 제거 가능
 
 ---
 
@@ -89,8 +95,8 @@
 | organizer_type | VARCHAR(50) | NOT NULL | 주최자 유형 | bookings.php, index.php |
 | busker_id | BIGINT UNSIGNED | FOREIGN KEY (buskers.id), NULL | 예약할 버스커 ID | bookings.php, index.php |
 | location | VARCHAR(200) | NOT NULL | 공연 장소 | bookings.php, index.php |
-| lat | DECIMAL(10, 8) | NULL | 위도 | bookings.php, index.php |
-| lng | DECIMAL(11, 8) | NULL | 경도 | bookings.php, index.php |
+| lat | DECIMAL(10, 8) | NULL | 위도 (지도 마커용, 선택) | bookings.php, index.php |
+| lng | DECIMAL(11, 8) | NULL | 경도 (지도 마커용, 선택) | bookings.php, index.php |
 | date | DATE | NOT NULL | 예약 날짜 | bookings.php, index.php |
 | start_time | TIME | NOT NULL | 시작 시간 | bookings.php, index.php |
 | end_time | TIME | NOT NULL | 종료 시간 | bookings.php, index.php |
@@ -221,8 +227,8 @@ CREATE TABLE performances (
     busker_id BIGINT UNSIGNED NULL,
     busker_name VARCHAR(100) NOT NULL,
     location VARCHAR(200) NOT NULL,
-    lat DECIMAL(10, 8) NULL,
-    lng DECIMAL(11, 8) NULL,
+    lat DECIMAL(10, 8) NULL COMMENT '위도 (지도 마커용, 선택)',
+    lng DECIMAL(11, 8) NULL COMMENT '경도 (지도 마커용, 선택)',
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     status ENUM('예정', '진행중', '종료', '취소') DEFAULT '예정',
@@ -234,8 +240,7 @@ CREATE TABLE performances (
     FOREIGN KEY (busker_id) REFERENCES buskers(id) ON DELETE SET NULL,
     INDEX idx_busker_id (busker_id),
     INDEX idx_location (location),
-    INDEX idx_status (status),
-    INDEX idx_lat_lng (lat, lng)
+    INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. bookings
@@ -245,8 +250,8 @@ CREATE TABLE bookings (
     organizer_type VARCHAR(50) NOT NULL,
     busker_id BIGINT UNSIGNED NULL,
     location VARCHAR(200) NOT NULL,
-    lat DECIMAL(10, 8) NULL,
-    lng DECIMAL(11, 8) NULL,
+    lat DECIMAL(10, 8) NULL COMMENT '위도 (지도 마커용, 선택)',
+    lng DECIMAL(11, 8) NULL COMMENT '경도 (지도 마커용, 선택)',
     date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
