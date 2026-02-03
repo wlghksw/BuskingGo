@@ -53,9 +53,9 @@ if (isset($_GET['toggleFavorite'])) {
 // 지역 선택 처리
 if (isset($_GET['location'])) {
     $_SESSION['selectedLocation'] = $_GET['location'];
-    // split 페이지로 리다이렉트
+    // split 페이지로 리다이렉트 (location 파라미터 제거하여 무한 리디렉션 방지)
     $appPage = $_GET['appPage'] ?? 'home';
-    header('Location: index.php?page=split&appPage=' . $appPage . '&location=' . urlencode($_GET['location']));
+    header('Location: index.php?page=split&appPage=' . $appPage);
     exit;
 }
 
@@ -128,8 +128,74 @@ if (isset($_POST['organizerName']) && isset($_POST['organizerType']) && isset($_
         ];
         
         $_SESSION['bookings'][] = $newBooking;
-        header('Location: index.php?page=split&appPage=booking&success=1');
-        exit;
+        
+        // 아티스트가 예약한 경우, 공연 목록에 추가
+        if ($_SESSION['userType'] === 'artist') {
+            // 버스커 이름 가져오기 (우선순위: 세션 버스커 정보 > userName)
+            $buskerName = $_SESSION['userName'] ?? '버스커';
+            
+            // 세션에 등록된 버스커 정보가 있으면 사용
+            if (isset($_SESSION['buskers']) && is_array($_SESSION['buskers']) && !empty($_SESSION['buskers'])) {
+                // 가장 최근에 등록된 버스커 정보 사용
+                $latestBusker = end($_SESSION['buskers']);
+                if (isset($latestBusker['name']) && !empty($latestBusker['name'])) {
+                    $buskerName = $latestBusker['name'];
+                }
+            }
+            
+            // 회원가입 시 저장된 teamName이 있으면 사용
+            if (isset($_SESSION['users']) && is_array($_SESSION['users'])) {
+                foreach ($_SESSION['users'] as $user) {
+                    if (isset($user['id']) && $user['id'] == ($_SESSION['userId'] ?? null)) {
+                        if (isset($user['teamName']) && !empty($user['teamName'])) {
+                            $buskerName = $user['teamName'];
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // 공연 데이터 생성
+            $newPerformance = [
+                'id' => 'booking_' . $newBooking['id'],
+                'buskerName' => $buskerName,
+                'location' => $location,
+                'lat' => $_POST['lat'] ?? $defaultLocation['lat'],
+                'lng' => $_POST['lng'] ?? $defaultLocation['lng'],
+                'startTime' => $startTime,
+                'endTime' => $endTime,
+                'status' => '예정',
+                'image' => '🎤',
+                'rating' => 0,
+                'distance' => 0,
+                'description' => $organizerName . '에서 예약된 공연',
+                'bookingId' => $newBooking['id'],
+                'performanceDate' => $date,
+                'createdByUserId' => $_SESSION['userId'] ?? null // 자신이 올린 공연인지 확인용
+            ];
+            
+            // 세션에 공연 데이터 초기화
+            if (!isset($_SESSION['performances'])) {
+                $_SESSION['performances'] = [];
+            }
+            
+            $_SESSION['performances'][] = $newPerformance;
+            
+            // 알림 표시를 위한 플래그 설정
+            $_SESSION['bookingNotification'] = [
+                'show' => true,
+                'message' => '버스킹 공연이 예약되었습니다! 메인 리스트에서 확인하실 수 있습니다.',
+                'bookingId' => $newBooking['id']
+            ];
+            
+            // 아티스트인 경우 메인 페이지로 이동
+            header('Location: index.php?page=split&appPage=home&bookingSuccess=1&notify=1');
+            exit;
+        } else {
+            // 관람자가 예약한 경우 (기존대로)
+            header('Location: index.php?page=split&appPage=booking&success=1');
+            exit;
+        }
     }
 }
 
@@ -209,11 +275,109 @@ if (isset($_POST['writeComment'])) {
     }
 }
 
+// 공연 목록 구성 (샘플 데이터 + 예약된 공연)
+$allPerformances = $samplePerformances;
+
+// 세션에 저장된 예약된 공연 추가
+if (isset($_SESSION['performances']) && is_array($_SESSION['performances'])) {
+    $allPerformances = array_merge($_SESSION['performances'], $allPerformances);
+}
+
+// 로그아웃 처리
+if (isset($_GET['logout']) && $_GET['logout'] == '1') {
+    // 세션 데이터 초기화
+    unset($_SESSION['userId']);
+    unset($_SESSION['user_id']);
+    unset($_SESSION['userName']);
+    $_SESSION['userType'] = null;
+    $_SESSION['favorites'] = [];
+    $_SESSION['selectedLocation'] = '';
+    
+    // 세션에 로그아웃 플래그 설정 (알림 표시용)
+    $_SESSION['just_logged_out'] = true;
+    
+    // 홈으로 리다이렉트 (logout 파라미터 제거)
+    $redirectPage = isset($_GET['page']) && $_GET['page'] === 'split' 
+        ? 'index.php?page=split&appPage=home'
+        : 'index.php?page=home';
+    header('Location: ' . $redirectPage);
+    exit;
+}
+
+// 공연 삭제 처리
+if (isset($_GET['deletePerformance'])) {
+    $performanceId = $_GET['deletePerformance'];
+    
+    // 자신이 올린 공연인지 확인
+    if (isset($_SESSION['performances']) && is_array($_SESSION['performances'])) {
+        foreach ($_SESSION['performances'] as $key => $perf) {
+            if ($perf['id'] === $performanceId) {
+                // 자신이 올린 공연인지 확인
+                $isOwner = false;
+                if (isset($perf['createdByUserId']) && $perf['createdByUserId'] == ($_SESSION['userId'] ?? null)) {
+                    $isOwner = true;
+                } elseif ($_SESSION['userType'] === 'artist' && isset($perf['bookingId'])) {
+                    // bookingId로 예약 정보 확인
+                    if (isset($_SESSION['bookings']) && is_array($_SESSION['bookings'])) {
+                        foreach ($_SESSION['bookings'] as $booking) {
+                            if ($booking['id'] == $perf['bookingId'] && $booking['createdBy'] === 'artist') {
+                                $isOwner = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if ($isOwner) {
+                    // 공연 삭제
+                    unset($_SESSION['performances'][$key]);
+                    $_SESSION['performances'] = array_values($_SESSION['performances']); // 인덱스 재정렬
+                    
+                    // 연관된 예약도 삭제 (선택사항)
+                    if (isset($perf['bookingId']) && isset($_SESSION['bookings']) && is_array($_SESSION['bookings'])) {
+                        foreach ($_SESSION['bookings'] as $bKey => $booking) {
+                            if ($booking['id'] == $perf['bookingId']) {
+                                unset($_SESSION['bookings'][$bKey]);
+                                $_SESSION['bookings'] = array_values($_SESSION['bookings']);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 성공 메시지와 함께 리다이렉트 (현재 페이지에 맞게)
+                    $appPage = $_GET['appPage'] ?? 'home';
+                    $redirectPage = isset($_GET['page']) && $_GET['page'] === 'split' 
+                        ? 'index.php?page=split&appPage=' . urlencode($appPage) . '&deleted=1'
+                        : 'index.php?page=home&deleted=1';
+                    header('Location: ' . $redirectPage);
+                    exit;
+                } else {
+                    // 권한 없음
+                    $appPage = $_GET['appPage'] ?? 'home';
+                    $redirectPage = isset($_GET['page']) && $_GET['page'] === 'split' 
+                        ? 'index.php?page=split&appPage=' . urlencode($appPage) . '&error=no_permission'
+                        : 'index.php?page=home&error=no_permission';
+                    header('Location: ' . $redirectPage);
+                    exit;
+                }
+            }
+        }
+    }
+    
+    // 공연을 찾을 수 없음
+    $appPage = $_GET['appPage'] ?? 'home';
+    $redirectPage = isset($_GET['page']) && $_GET['page'] === 'split' 
+        ? 'index.php?page=split&appPage=' . urlencode($appPage) . '&error=not_found'
+        : 'index.php?page=home&error=not_found';
+    header('Location: ' . $redirectPage);
+    exit;
+}
+
 // 공연 필터링
 $selectedLocation = $_SESSION['selectedLocation'];
-$filteredPerformances = $samplePerformances;
+$filteredPerformances = $allPerformances;
 if ($selectedLocation) {
-    $filteredPerformances = array_filter($samplePerformances, function($perf) use ($selectedLocation) {
+    $filteredPerformances = array_filter($allPerformances, function($perf) use ($selectedLocation) {
         return stripos($perf['location'], $selectedLocation) !== false;
     });
 }
@@ -279,6 +443,19 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
     <!-- 빛나는 효과 -->
     <div class="fixed inset-0 glow-effect -z-10"></div>
     
+    <!-- 알림 토스트 -->
+    <div id="notificationToast" class="hidden fixed top-4 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 max-w-md animate-slide-in">
+        <div class="flex items-center gap-3">
+            <div class="text-2xl">🎉</div>
+            <div class="flex-1">
+                <p class="font-bold text-lg" id="notificationMessage"></p>
+            </div>
+            <button onclick="closeNotification()" class="text-white hover:text-gray-200">
+                <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+            </button>
+        </div>
+    </div>
+
     <div class="min-h-screen relative z-0">
         <main>
             <?php
@@ -314,8 +491,9 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
             <div id="loginTab" class="space-y-4">
                 <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-bold mb-2 text-gray-300">이메일 *</label>
-                        <input type="email" name="email" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="example@email.com" />
+                        <label class="block text-sm font-bold mb-2 text-gray-300">아이디 *</label>
+                        <input type="text" name="user_id" required pattern="[a-zA-Z0-9_]{4,20}" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="4-20자의 영문, 숫자, 언더스코어" />
+                        <p class="text-xs text-gray-500 mt-1">4-20자의 영문, 숫자, 언더스코어만 사용 가능</p>
                     </div>
                     <div>
                         <label class="block text-sm font-bold mb-2 text-gray-300">비밀번호 *</label>
@@ -336,9 +514,9 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
                         
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-bold mb-2 text-gray-300">이메일 *</label>
-                                <input type="email" name="email" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="example@email.com" />
-                                <p class="text-xs text-gray-500 mt-1">계정 ID 및 알림 수신용</p>
+                                <label class="block text-sm font-bold mb-2 text-gray-300">아이디 *</label>
+                                <input type="text" name="user_id" required pattern="[a-zA-Z0-9_]{4,20}" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" placeholder="4-20자의 영문, 숫자, 언더스코어" />
+                                <p class="text-xs text-gray-500 mt-1">4-20자의 영문, 숫자, 언더스코어만 사용 가능</p>
                             </div>
                             
                             <div>
@@ -542,7 +720,7 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
             event.preventDefault();
             const formData = new FormData(event.target);
             const data = {
-                email: formData.get('email'),
+                user_id: formData.get('user_id'),
                 password: formData.get('password')
             };
             
@@ -631,7 +809,7 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
             
             // 기본 데이터
             const data = {
-                email: formData.get('email'),
+                user_id: formData.get('user_id'),
                 password: formData.get('password'),
                 name: formData.get('name'),
                 phone: formData.get('phone'),
@@ -727,7 +905,83 @@ if ($selectedLocation && isset($locationCoordinates[$selectedLocation])) {
             deferredPrompt = e;
             // 설치 버튼 표시 로직을 여기에 추가할 수 있습니다
         });
+        
+        // 알림 토스트 표시
+        function showNotification(message) {
+            const toast = document.getElementById('notificationToast');
+            const messageEl = document.getElementById('notificationMessage');
+            if (toast && messageEl) {
+                messageEl.textContent = message;
+                toast.classList.remove('hidden');
+                toast.classList.add('animate-slide-in');
+                
+                // 5초 후 자동 닫기
+                setTimeout(() => {
+                    closeNotification();
+                }, 5000);
+            }
+        }
+        
+        function closeNotification() {
+            const toast = document.getElementById('notificationToast');
+            if (toast) {
+                toast.classList.add('hidden');
+                toast.classList.remove('animate-slide-in');
+            }
+        }
+        
+        // 페이지 로드 시 알림 확인
+        <?php if (isset($_SESSION['bookingNotification']) && $_SESSION['bookingNotification']['show']): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            showNotification('<?= htmlspecialchars($_SESSION['bookingNotification']['message']) ?>');
+            // 알림 표시 후 세션에서 제거
+            <?php unset($_SESSION['bookingNotification']); ?>
+        });
+        <?php endif; ?>
+        
+        // URL 파라미터로 알림 표시
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('notify') === '1') {
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification('버스킹 공연이 예약되었습니다! 메인 리스트에서 확인하실 수 있습니다.');
+            });
+        }
+        
+        // 공연 삭제 성공 알림
+        if (urlParams.get('deleted') === '1') {
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification('공연이 삭제되었습니다.');
+            });
+        }
+        
+        // 공연 삭제 실패 알림
+        if (urlParams.get('error') === 'no_permission') {
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification('삭제 권한이 없습니다.');
+            });
+        }
+        if (urlParams.get('error') === 'not_found') {
+            document.addEventListener('DOMContentLoaded', function() {
+                showNotification('공연을 찾을 수 없습니다.');
+            });
+        }
     </script>
+    
+    <style>
+        @keyframes slide-in {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .animate-slide-in {
+            animation: slide-in 0.3s ease-out;
+        }
+    </style>
     </div>
 </body>
 </html>

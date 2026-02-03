@@ -79,10 +79,37 @@
                         </div>
                     </div>
                 </div>
-                <!-- 찜하기 버튼 (이벤트 전파 방지) -->
-                <a href="index.php?page=home&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-700 rounded-full transition-all">
-                    <i data-lucide="heart" class="<?= in_array($perf['id'], $_SESSION['favorites']) ? 'fill-red-500 text-red-500' : 'text-gray-400' ?>" style="width: 24px; height: 24px;"></i>
-                </a>
+                <div class="flex items-center gap-2">
+                    <?php
+                    // 자신이 올린 공연인지 확인
+                    $isMyPerformance = false;
+                    if ($_SESSION['userType'] === 'artist') {
+                        if (isset($perf['createdByUserId']) && $perf['createdByUserId'] == ($_SESSION['userId'] ?? null)) {
+                            $isMyPerformance = true;
+                        } elseif (isset($perf['bookingId']) && isset($_SESSION['bookings'])) {
+                            foreach ($_SESSION['bookings'] as $booking) {
+                                if ($booking['id'] == $perf['bookingId'] && $booking['createdBy'] === 'artist') {
+                                    $isMyPerformance = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    ?>
+                    <!-- 자신이 올린 공연인 경우 삭제 버튼 표시 -->
+                    <?php if ($isMyPerformance): ?>
+                    <a href="index.php?page=home&deletePerformance=<?= htmlspecialchars($perf['id']) ?>" 
+                       onclick="event.stopPropagation(); return confirm('정말 이 공연을 삭제하시겠습니까?');" 
+                       class="p-2 hover:bg-red-900/50 rounded-full transition-all text-red-400 hover:text-red-300"
+                       title="공연 삭제">
+                        <i data-lucide="trash-2" style="width: 20px; height: 20px;"></i>
+                    </a>
+                    <?php endif; ?>
+                    <!-- 찜하기 버튼 (이벤트 전파 방지) -->
+                    <a href="index.php?page=home&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-700 rounded-full transition-all">
+                        <i data-lucide="heart" class="<?= in_array($perf['id'], $_SESSION['favorites']) ? 'fill-red-500 text-red-500' : 'text-gray-400' ?>" style="width: 24px; height: 24px;"></i>
+                    </a>
+                </div>
             </div>
 
             <!-- 공연 정보 그리드: 위치, 시간, 거리, 평점 -->
@@ -128,28 +155,44 @@ document.addEventListener('DOMContentLoaded', function() {
     // 마커 추가
     performances.forEach(perf => {
         const isLive = perf.status === '진행중';
+        const statusText = isLive ? 'LIVE' : '진행 예정';
         const icon = L.divIcon({
             className: 'custom-marker',
             html: `
-                <div style="
-                    background: ${isLive ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #9333ea, #7c3aed)'};
-                    border: 3px solid #ffffff;
-                    border-radius: 50%;
-                    width: 50px;
-                    height: 50px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 28px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                    transition: transform 0.2s;
-                ">
-                    🎤
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <div style="
+                        background: ${isLive ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #9333ea, #7c3aed)'};
+                        border: 3px solid #ffffff;
+                        border-radius: 50%;
+                        width: 50px;
+                        height: 50px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 28px;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                        transition: transform 0.2s;
+                    ">
+                        🎤
+                    </div>
+                    <div style="
+                        margin-top: 4px;
+                        background: ${isLive ? '#ef4444' : '#9333ea'};
+                        color: white;
+                        font-size: 10px;
+                        font-weight: bold;
+                        padding: 2px 6px;
+                        border-radius: 8px;
+                        white-space: nowrap;
+                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                    ">
+                        ${statusText}
+                    </div>
                 </div>
             `,
-            iconSize: [50, 50],
-            iconAnchor: [25, 25],
-            popupAnchor: [0, -25],
+            iconSize: [50, 70],
+            iconAnchor: [25, 70],
+            popupAnchor: [0, -70],
         });
         
         const marker = L.marker([perf.lat, perf.lng], { icon }).addTo(map);

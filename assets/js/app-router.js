@@ -387,27 +387,43 @@ class AppRouter {
         
         performances.forEach(perf => {
             const isLive = perf.status === '진행중';
+            const statusText = isLive ? 'LIVE' : '진행 예정';
             const icon = L.divIcon({
                 className: 'custom-marker',
                 html: `
-                    <div style="
-                        background: ${isLive ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #9333ea, #7c3aed)'};
-                        border: 3px solid #ffffff;
-                        border-radius: 50%;
-                        width: 40px;
-                        height: 40px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 24px;
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                    ">
-                        🎤
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        <div style="
+                            background: ${isLive ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #9333ea, #7c3aed)'};
+                            border: 3px solid #ffffff;
+                            border-radius: 50%;
+                            width: 40px;
+                            height: 40px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 24px;
+                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                        ">
+                            🎤
+                        </div>
+                        <div style="
+                            margin-top: 4px;
+                            background: ${isLive ? '#ef4444' : '#9333ea'};
+                            color: white;
+                            font-size: 9px;
+                            font-weight: bold;
+                            padding: 2px 5px;
+                            border-radius: 6px;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                        ">
+                            ${statusText}
+                        </div>
                     </div>
                 `,
-                iconSize: [40, 40],
-                iconAnchor: [20, 20],
-                popupAnchor: [0, -20],
+                iconSize: [40, 60],
+                iconAnchor: [20, 60],
+                popupAnchor: [0, -60],
             });
             
             const marker = L.marker([perf.lat, perf.lng], { icon }).addTo(map);
@@ -452,7 +468,10 @@ class AppRouter {
 // 전역 함수들
 function handleLocationChange(event) {
     const location = event.target.value;
-    window.location.href = `index.php?page=split&location=${encodeURIComponent(location)}`;
+    const urlParams = new URLSearchParams(window.location.search);
+    const appPage = urlParams.get('appPage') || 'home';
+    // location 파라미터로 이동하면 index.php에서 세션에 저장하고 리디렉트됨
+    window.location.href = `index.php?page=split&appPage=${appPage}&location=${encodeURIComponent(location)}`;
 }
 
 function showCommunityTab(tab) {

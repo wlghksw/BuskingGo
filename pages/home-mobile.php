@@ -65,6 +65,22 @@
                         </span>
                         <?php endif; ?>
                     </div>
+                    <?php
+                    // 자신이 올린 공연인지 확인
+                    $isMyPerformance = false;
+                    if ($_SESSION['userType'] === 'artist') {
+                        if (isset($perf['createdByUserId']) && $perf['createdByUserId'] == ($_SESSION['userId'] ?? null)) {
+                            $isMyPerformance = true;
+                        } elseif (isset($perf['bookingId']) && isset($_SESSION['bookings'])) {
+                            foreach ($_SESSION['bookings'] as $booking) {
+                                if ($booking['id'] == $perf['bookingId'] && $booking['createdBy'] === 'artist') {
+                                    $isMyPerformance = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    ?>
                     <!-- 위치와 거리 -->
                     <div class="flex items-center gap-4 text-sm text-gray-300 mb-1">
                         <span class="flex items-center gap-1">
@@ -88,11 +104,22 @@
                         </span>
                     </div>
                 </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <!-- 자신이 올린 공연인 경우 삭제 버튼 표시 -->
+                    <?php if ($isMyPerformance): ?>
+                    <a href="index.php?page=split&appPage=home&deletePerformance=<?= htmlspecialchars($perf['id']) ?>" 
+                       onclick="event.stopPropagation(); return confirm('정말 이 공연을 삭제하시겠습니까?');" 
+                       class="p-2 hover:bg-red-900/50 rounded-full transition-all text-red-400 hover:text-red-300"
+                       title="공연 삭제">
+                        <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
+                    </a>
+                    <?php endif; ?>
+                    <!-- 찜하기 버튼 -->
+                    <a href="index.php?page=split&appPage=home&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-700/50 rounded-full transition-all">
+                        <i data-lucide="heart" class="<?= in_array($perf['id'], $_SESSION['favorites']) ? 'fill-red-500 text-red-500' : 'text-gray-400' ?>" style="width: 20px; height: 20px;"></i>
+                    </a>
+                </div>
             </div>
-            <!-- 찜하기 버튼 -->
-            <a href="index.php?page=split&appPage=home&toggleFavorite=<?= $perf['id'] ?>" onclick="event.stopPropagation();" class="p-2 hover:bg-gray-700/50 rounded-full transition-all ml-2">
-                <i data-lucide="heart" class="<?= in_array($perf['id'], $_SESSION['favorites']) ? 'fill-red-500 text-red-500' : 'text-gray-400' ?>" style="width: 20px; height: 20px;"></i>
-            </a>
         </div>
         <!-- 공연 설명 -->
         <p class="text-sm text-gray-400 mt-2"><?= htmlspecialchars($perf['description']) ?></p>

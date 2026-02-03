@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     
     if ($userId) {
         $userData['userId'] = $userId;
-        $userData['email'] = $_SESSION['userEmail'] ?? '';
+        $userData['user_id'] = $_SESSION['user_id'] ?? '';
         $userData['name'] = $_SESSION['userName'] ?? '';
     }
     
@@ -58,16 +58,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data = $_POST;
     }
     
-    // 이메일/비밀번호 로그인인지 사용자 유형 설정인지 확인
-    if (isset($data['email']) && isset($data['password'])) {
-        // 실제 로그인 (이메일/비밀번호)
-        $email = trim(strtolower($data['email']));
+    // 아이디/비밀번호 로그인인지 사용자 유형 설정인지 확인
+    if (isset($data['user_id']) && isset($data['password'])) {
+        // 실제 로그인 (아이디/비밀번호)
+        $user_id = trim($data['user_id']);
         $password = $data['password'];
         
         // 사용자 찾기
         $foundUser = null;
         foreach ($_SESSION['users'] as $user) {
-            if ($user['email'] === $email) {
+            if ($user['user_id'] === $user_id) {
                 $foundUser = $user;
                 break;
             }
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             http_response_code(401);
             echo json_encode([
                 'success' => false,
-                'message' => '이메일 또는 비밀번호가 올바르지 않습니다.'
+                'message' => '아이디 또는 비밀번호가 올바르지 않습니다.'
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
@@ -87,14 +87,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             http_response_code(401);
             echo json_encode([
                 'success' => false,
-                'message' => '이메일 또는 비밀번호가 올바르지 않습니다.'
+                'message' => '아이디 또는 비밀번호가 올바르지 않습니다.'
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
         
         // 로그인 성공 - 세션에 사용자 정보 저장
         $_SESSION['userId'] = $foundUser['id'];
-        $_SESSION['userEmail'] = $foundUser['email'];
+        $_SESSION['user_id'] = $foundUser['user_id'];
         $_SESSION['userName'] = $foundUser['name'];
         $_SESSION['userType'] = $foundUser['userType'];
         
@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'message' => '로그인되었습니다.',
             'data' => [
                 'userId' => $foundUser['id'],
-                'email' => $foundUser['email'],
+                'user_id' => $foundUser['user_id'],
                 'name' => $foundUser['name'],
                 'userType' => $foundUser['userType'],
                 'favorites' => $_SESSION['favorites'],
@@ -167,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => '이메일/비밀번호 또는 사용자 유형이 필요합니다.'
+            'message' => '아이디/비밀번호 또는 사용자 유형이 필요합니다.'
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     // 세션 데이터 초기화
     unset($_SESSION['userId']);
-    unset($_SESSION['userEmail']);
+    unset($_SESSION['user_id']);
     unset($_SESSION['userName']);
     $_SESSION['userType'] = null;
     $_SESSION['favorites'] = [];

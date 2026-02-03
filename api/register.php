@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // 유효성 검사
-    $requiredFields = ['email', 'password', 'name', 'userType'];
+    $requiredFields = ['user_id', 'password', 'name', 'userType'];
     foreach ($requiredFields as $field) {
         if (!isset($data[$field]) || empty($data[$field])) {
             http_response_code(400);
@@ -37,17 +37,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    $email = trim(strtolower($data['email']));
+    $user_id = trim($data['user_id']);
     $password = $data['password'];
     $name = $data['name'];
     $userType = $data['userType'];
     
-    // 이메일 형식 검증
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    // 아이디 형식 검증 (영문, 숫자, 언더스코어만 허용, 4-20자)
+    if (!preg_match('/^[a-zA-Z0-9_]{4,20}$/', $user_id)) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => '유효하지 않은 이메일 형식입니다.'
+            'message' => '아이디는 4-20자의 영문, 숫자, 언더스코어만 사용 가능합니다.'
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -81,13 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // 중복 이메일 확인
+    // 중복 아이디 확인
     foreach ($_SESSION['users'] as $user) {
-        if ($user['email'] === $email) {
+        if ($user['user_id'] === $user_id) {
             http_response_code(409);
             echo json_encode([
                 'success' => false,
-                'message' => '이미 등록된 이메일입니다.'
+                'message' => '이미 사용 중인 아이디입니다.'
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 새 사용자 데이터 생성
     $newUser = [
         'id' => time() . rand(1000, 9999),
-        'email' => $email,
+        'user_id' => $user_id,
         'password' => $hashedPassword,
         'name' => $name,
         'userType' => $userType,
@@ -149,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // 회원가입 성공 시 자동 로그인
     $_SESSION['userId'] = $newUser['id'];
-    $_SESSION['userEmail'] = $email;
+    $_SESSION['user_id'] = $user_id;
     $_SESSION['userName'] = $name;
     $_SESSION['userType'] = $userType;
     $_SESSION['favorites'] = [];
