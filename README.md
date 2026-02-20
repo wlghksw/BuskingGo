@@ -1,19 +1,8 @@
-# 버스킹고 데이터베이스 스키마 (최소 필수 필드만)
-
-## 개요
-현재 웹 애플리케이션에서 **실제로 코드에서 사용하는 필드만** 포함한 최소한의 스키마입니다.
-
-**참고:** 
-- `lat`, `lng` (위도/경도) 필드는 지도 마커 표시용입니다. 
-- 지도 기능을 사용하지 않는다면 이 필드들을 제거해도 됩니다.
-- `location` (문자열) 필드만으로도 충분히 동작합니다.
-
----
+# 버스킹고 데이터베이스 스키마 
 
 ## 필수 테이블 (7개)
 
 ### 1. users (사용자 테이블)
-**실제 사용 필드만**
 
 | 컬럼명 | 타입 | 제약조건 | 설명 | 코드에서 사용 |
 |--------|------|----------|------|--------------|
@@ -26,16 +15,8 @@
 | interested_location | VARCHAR(50) | NULL | 관심 지역 | register.php, index.php |
 | created_at | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일시 | register.php |
 
-**제거된 필드:**
-- `last_login_at` - auth.php에서 업데이트하지만 실제로 사용 안 함
-- `email_notification`, `sms_notification` - 인증 기능 없음
-
-**인덱스:** `idx_email`, `idx_user_type`
-
----
 
 ### 2. buskers (버스커 테이블)
-**실제 사용 필드만**
 
 | 컬럼명 | 타입 | 제약조건 | 설명 | 코드에서 사용 |
 |--------|------|----------|------|--------------|
@@ -53,12 +34,9 @@
 | performance_count | INT UNSIGNED | DEFAULT 0 | 공연 횟수 | buskers.php, index.php |
 | created_at | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일시 | buskers.php, index.php |
 
-**인덱스:** `idx_user_id`, `idx_preferred_location`
-
 ---
 
 ### 3. performances (공연 테이블)
-**실제 사용 필드만** (샘플 데이터 기준)
 
 | 컬럼명 | 타입 | 제약조건 | 설명 | 코드에서 사용 |
 |--------|------|----------|------|--------------|
@@ -77,16 +55,9 @@
 | distance | DECIMAL(5,2) | NULL | 거리 (km) | index.php, constants.php |
 | created_at | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일시 | performances.php |
 
-**제거된 필드:**
-- `performance_date` - 샘플 데이터에 없음, start_time/end_time만 사용
-
-**인덱스:** `idx_busker_id`, `idx_location`, `idx_status`
-**참고:** `lat`, `lng`는 지도 마커 표시용 (선택사항). 지도 기능을 사용하지 않으면 제거 가능
-
 ---
 
 ### 4. bookings (예약 테이블)
-**실제 사용 필드만**
 
 | 컬럼명 | 타입 | 제약조건 | 설명 | 코드에서 사용 |
 |--------|------|----------|------|--------------|
@@ -105,16 +76,9 @@
 | created_by | VARCHAR(20) | NULL | 예약 생성자 유형 ('viewer', 'artist') | bookings.php, index.php |
 | created_at | DATETIME | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일시 | bookings.php, index.php |
 
-**변경사항:**
-- `booking_date` → `date` (코드에서 `date` 사용)
-- `created_by` → VARCHAR(20) (user_id가 아닌 userType 문자열 저장)
-
-**인덱스:** `idx_busker_id`, `idx_status`, `idx_date`
-
 ---
 
 ### 5. community_posts (커뮤니티 게시글 테이블)
-**실제 사용 필드만**
 
 | 컬럼명 | 타입 | 제약조건 | 설명 | 코드에서 사용 |
 |--------|------|----------|------|--------------|
@@ -131,17 +95,9 @@
 | comments | INT UNSIGNED | DEFAULT 0 | 댓글 수 | community.php, index.php |
 | date | DATE | NOT NULL | 작성일 | community.php, index.php |
 
-**변경사항:**
-- `comments_count` → `comments` (코드에서 `comments` 사용)
-- `created_at` → `date` (코드에서 `date` 사용)
-- `performanceDate` → `performance_date` (DB 컬럼명)
-
-**인덱스:** `idx_user_id`, `idx_tab`, `idx_date`, `idx_tab_date`
-
 ---
 
 ### 6. community_comments (커뮤니티 댓글 테이블)
-**실제 사용 필드만**
 
 | 컬럼명 | 타입 | 제약조건 | 설명 | 코드에서 사용 |
 |--------|------|----------|------|--------------|
@@ -153,15 +109,9 @@
 | content | TEXT | NOT NULL | 댓글 내용 | comments.php, index.php |
 | date | DATETIME | NOT NULL | 작성일시 | comments.php, index.php |
 
-**변경사항:**
-- `created_at` → `date` (코드에서 `date` 사용, DATETIME으로 저장)
-
-**인덱스:** `idx_post_id`, `idx_user_id`, `idx_date`
-
 ---
 
 ### 7. favorites (찜하기 테이블)
-**실제 사용 필드만**
 
 | 컬럼명 | 타입 | 제약조건 | 설명 | 코드에서 사용 |
 |--------|------|----------|------|--------------|
@@ -169,11 +119,4 @@
 | user_id | BIGINT UNSIGNED | FOREIGN KEY (users.id), NULL | 사용자 ID | index.php |
 | performance_id | BIGINT UNSIGNED | FOREIGN KEY (performances.id), NOT NULL | 공연 ID | index.php |
 
-**제거된 필드:**
-- `created_at` - 코드에서 사용 안 함
-
-**인덱스:** `idx_user_id`, `idx_performance_id`
-**UNIQUE:** `(user_id, performance_id)` - 중복 방지
-
-**참고:** 현재는 세션 배열로 관리하지만, DB 연동 시 필요
 
