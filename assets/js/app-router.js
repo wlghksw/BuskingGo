@@ -308,7 +308,12 @@ class AppRouter {
     }
 
     async loadCommunityPage() {
-        const communityPosts = <?= json_encode($communityPosts) ?>;
+        // 더미 데이터 제거됨 - API에서 조회
+        const communityPosts = {
+            'free': [],
+            'recruit': [],
+            'collab': []
+        };
         
         let html = `
             <div class="p-4 space-y-4">
@@ -386,6 +391,11 @@ class AppRouter {
         }).addTo(map);
         
         performances.forEach(perf => {
+            // 좌표가 없으면 건너뛰기
+            if (!perf.lat || !perf.lng) {
+                return;
+            }
+            
             const isLive = perf.status === '진행중';
             const statusText = isLive ? 'LIVE' : '진행 예정';
             const icon = L.divIcon({
@@ -436,12 +446,6 @@ class AppRouter {
                     ${perf.status === '진행중' ? '<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs rounded-full mt-2">LIVE</span>' : ''}
                 </div>
             `);
-            
-            marker.on('click', () => {
-                if (typeof showPerformanceModal === 'function') {
-                    showPerformanceModal(perf);
-                }
-            });
         });
     }
 

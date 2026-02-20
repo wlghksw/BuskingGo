@@ -127,6 +127,45 @@ if (isset($_POST['organizerName']) && isset($_POST['organizerType']) && isset($_
             'createdBy' => $_SESSION['userType'] ?? 'viewer'
         ];
         
+        // 데이터베이스에 예약 저장 시도
+        require_once __DIR__ . '/config/database.php';
+        $pdo = getDBConnection();
+        
+        $bookingId = null;
+        if ($pdo) {
+            try {
+                // SQL 모드 조정 (경고 무시)
+                $pdo->exec("SET sql_mode=''");
+                
+                $stmt = $pdo->prepare("INSERT INTO bookings (organizer_name, organizer_type, busker_id, location, lat, lng, date, start_time, end_time, additional_request, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $result = $stmt->execute([
+                    $organizerName,
+                    $organizerType,
+                    $_POST['buskerId'] ?? null,
+                    $location,
+                    $_POST['lat'] ?? null,
+                    $_POST['lng'] ?? null,
+                    $date,
+                    $startTime,
+                    $endTime,
+                    $_POST['additionalRequest'] ?? null,
+                    '대기중',
+                    $_SESSION['userType'] ?? 'viewer'
+                ]);
+                
+                if ($result) {
+                    $bookingId = $pdo->lastInsertId();
+                    $newBooking['id'] = $bookingId;
+                    error_log("Booking saved successfully: ID=" . $bookingId);
+                } else {
+                    error_log("Booking insert failed: " . print_r($stmt->errorInfo(), true));
+                }
+            } catch (PDOException $e) {
+                error_log("Error saving booking: " . $e->getMessage());
+                // 에러 발생 시에도 세션에 저장 (폴백)
+            }
+        }
+        
         $_SESSION['bookings'][] = $newBooking;
         
         // 아티스트가 예약한 경우, 공연 목록에 추가
@@ -155,9 +194,81 @@ if (isset($_POST['organizerName']) && isset($_POST['organizerType']) && isset($_
                 }
             }
             
+            // 데이터베이스에 공연 저장 시도
+            require_once __DIR__ . '/config/database.php';
+            $pdo = getDBConnection();
+            
+            $performanceId = null;
+            if ($pdo) {
+                try {
+                    // 버스커 ID 찾기
+                    $buskerId = null;
+                    if (isset($_SESSION['userId'])) {
+                        $stmt = $pdo->prepare("SELECT id FROM buskers WHERE user_id = ? LIMIT 1");
+                        $stmt->execute([$_SESSION['userId']]);
+                        $busker = $stmt->fetch();
+                        if ($busker) {
+                            $buskerId = $busker['id'];
+                        }
+                    }
+                    
+                    // 공연 데이터베이스에 저장
+                    // SQL 모드 조정 (경고 무시)
+                    $pdo->exec("SET sql_mode=''");
+                    
+                    $stmt = $pdo->prepare("INSERT INTO performances (busker_id, busker_name, location, lat, lng, start_time, end_time, performance_date, status, image, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    
+                    $result = $stmt->execute([
+                        $buskerId,
+                        $buskerName,
+                        $location,
+                        $_POST['lat'] ?? null,
+                        $_POST['lng'] ?? null,
+                        $startTime,
+                        $endTime,
+                        $date,
+                        '예정',
+                        '🎤',
+                        $organizerName . '에서 예약된 공연'
+                    ]);
+                    
+                    if ($result) {
+                        $performanceId = $pdo->lastInsertId();
+                        error_log("Performance saved successfully: ID=" . $performanceId);
+                    } else {
+                        $errorInfo = $stmt->errorInfo();
+                        // 경고(01000)는 무시하고 실제 에러만 로깅
+                        if ($errorInfo[0] !== '01000') {
+                            error_log("Performance insert failed: " . print_r($errorInfo, true));
+                        } else {
+                            // 경고지만 저장은 성공했을 수 있음
+                            $performanceId = $pdo->lastInsertId();
+                            if ($performanceId) {
+                                error_log("Performance saved with warning: ID=" . $performanceId);
+                            }
+                        }
+                    }
+                } catch (PDOException $e) {
+                    // 에러 상세 정보 로깅
+                    $errorMsg = "Error saving performance: " . $e->getMessage();
+                    error_log($errorMsg);
+                    error_log("Performance data: " . print_r([
+                        'buskerId' => $buskerId,
+                        'buskerName' => $buskerName,
+                        'location' => $location,
+                        'lat' => $_POST['lat'] ?? null,
+                        'lng' => $_POST['lng'] ?? null,
+                        'startTime' => $startTime,
+                        'endTime' => $endTime,
+                        'date' => $date,
+                        'status' => '예정'
+                    ], true));
+                }
+            }
+            
             // 공연 데이터 생성
             $newPerformance = [
-                'id' => 'booking_' . $newBooking['id'],
+                'id' => $performanceId ?: 'booking_' . $newBooking['id'],
                 'buskerName' => $buskerName,
                 'location' => $location,
                 'lat' => $_POST['lat'] ?? $defaultLocation['lat'],
@@ -174,7 +285,7 @@ if (isset($_POST['organizerName']) && isset($_POST['organizerType']) && isset($_
                 'createdByUserId' => $_SESSION['userId'] ?? null // 자신이 올린 공연인지 확인용
             ];
             
-            // 세션에 공연 데이터 초기화
+            // 세션에 공연 데이터 초기화 (폴백)
             if (!isset($_SESSION['performances'])) {
                 $_SESSION['performances'] = [];
             }
@@ -200,8 +311,13 @@ if (isset($_POST['organizerName']) && isset($_POST['organizerType']) && isset($_
 }
 
 // 커뮤니티 게시글 및 댓글 초기화 (세션에 저장)
+// 더미 데이터 제거됨 - 데이터베이스에서만 조회
 if (!isset($_SESSION['communityPosts'])) {
-    $_SESSION['communityPosts'] = $communityPosts;
+    $_SESSION['communityPosts'] = [
+        'free' => [],
+        'recruit' => [],
+        'collab' => []
+    ];
 }
 if (!isset($_SESSION['communityComments'])) {
     $_SESSION['communityComments'] = [];
@@ -275,8 +391,42 @@ if (isset($_POST['writeComment'])) {
     }
 }
 
-// 공연 목록 구성 (샘플 데이터 + 예약된 공연)
-$allPerformances = $samplePerformances;
+// 공연 목록 구성 (데이터베이스 + 샘플 데이터 + 예약된 공연)
+$allPerformances = [];
+
+// 데이터베이스에서 공연 목록 조회
+require_once __DIR__ . '/config/database.php';
+$pdo = getDBConnection();
+
+if ($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT * FROM performances ORDER BY created_at DESC");
+        $dbPerformances = $stmt->fetchAll();
+        
+        foreach ($dbPerformances as $perf) {
+            $allPerformances[] = [
+                'id' => $perf['id'],
+                'buskerName' => $perf['busker_name'],
+                'location' => $perf['location'],
+                'lat' => $perf['lat'] ? (float)$perf['lat'] : null,
+                'lng' => $perf['lng'] ? (float)$perf['lng'] : null,
+                'startTime' => $perf['start_time'],
+                'endTime' => $perf['end_time'],
+                'status' => $perf['status'],
+                'image' => $perf['image'] ?? '🎤',
+                'rating' => $perf['rating'] ? (float)$perf['rating'] : 0,
+                'distance' => $perf['distance'] ? (float)$perf['distance'] : 0,
+                'description' => $perf['description'] ?? '',
+                'performanceDate' => $perf['performance_date'] ?? null,
+                'buskerId' => $perf['busker_id']
+            ];
+        }
+    } catch (PDOException $e) {
+        error_log("Error loading performances: " . $e->getMessage());
+    }
+}
+
+// 샘플 데이터 제거됨 - 데이터베이스에서만 조회
 
 // 세션에 저장된 예약된 공연 추가
 if (isset($_SESSION['performances']) && is_array($_SESSION['performances'])) {
@@ -382,15 +532,15 @@ if ($selectedLocation) {
     });
 }
 
-// 커뮤니티 게시글 데이터 (세션에서 가져오기, 없으면 기본값 사용)
+// 커뮤니티 게시글 데이터 (세션에서만 가져오기, 더미 데이터 제거됨)
 if (isset($_SESSION['communityPosts'])) {
-    // 세션 데이터와 기본 데이터 병합
-    foreach ($communityPosts as $tab => $defaultPosts) {
-        if (isset($_SESSION['communityPosts'][$tab])) {
-            // 세션 데이터를 앞에 추가 (최신순)
-            $communityPosts[$tab] = array_merge($_SESSION['communityPosts'][$tab], $defaultPosts);
-        }
-    }
+    $communityPosts = $_SESSION['communityPosts'];
+} else {
+    $communityPosts = [
+        'free' => [],
+        'recruit' => [],
+        'collab' => []
+    ];
 }
 
 // 지도 중심 좌표 설정

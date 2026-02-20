@@ -39,10 +39,39 @@ $viewPostId = isset($_GET['postId']) ? (int)$_GET['postId'] : null;
     <!-- 게시글 목록 -->
     <div class="px-4 space-y-3 pb-4">
         <?php
-        // 세션에서 게시글 가져오기 (최신순 정렬)
+        // 데이터베이스에서 게시글 가져오기
+        require_once __DIR__ . '/../config/database.php';
+        $pdo = getDBConnection();
+        $posts = [];
+        
+        if ($pdo) {
+            try {
+                $stmt = $pdo->prepare("SELECT * FROM community_posts WHERE tab = ? ORDER BY date DESC, id DESC");
+                $stmt->execute([$communityTab]);
+                $dbPosts = $stmt->fetchAll();
+                
+                foreach ($dbPosts as $post) {
+                    $posts[] = [
+                        'id' => $post['id'],
+                        'title' => $post['title'],
+                        'content' => $post['content'],
+                        'author' => $post['author'],
+                        'date' => $post['date'],
+                        'views' => $post['views'],
+                        'comments' => $post['comments'],
+                        'location' => $post['location'] ?? null,
+                        'genre' => $post['genre'] ?? null,
+                        'performanceDate' => $post['performance_date'] ?? null
+                    ];
+                }
+            } catch (PDOException $e) {
+                error_log("Database error in community-mobile.php: " . $e->getMessage());
+            }
+        }
+        
+        // 세션에 저장된 게시글도 추가 (하위 호환성)
         $sessionPosts = $_SESSION['communityPosts'][$communityTab] ?? [];
-        $defaultPosts = $communityPosts[$communityTab] ?? [];
-        $posts = array_merge($sessionPosts, $defaultPosts);
+        $posts = array_merge($posts, $sessionPosts);
         // ID 기준 역순 정렬 (최신순)
         usort($posts, function($a, $b) {
             return ($b['id'] ?? 0) - ($a['id'] ?? 0);
@@ -181,88 +210,90 @@ function showPostDetail(postId, tab) {
     const modal = document.getElementById('postDetailModal');
     const content = document.getElementById('postDetailContent');
     
-    // 게시글 데이터 가져오기 (세션 데이터 사용)
-    const sessionPosts = <?= json_encode($_SESSION['communityPosts'][$communityTab] ?? []) ?>;
-    const defaultPosts = <?= json_encode($communityPosts[$communityTab] ?? []) ?>;
-    const posts = [...sessionPosts, ...defaultPosts];
-    const post = posts.find(p => p.id == postId);
-    
-    if (!post) {
-        alert('게시글을 찾을 수 없습니다.');
-        return;
-    }
-    
-    // 댓글 가져오기
-    const comments = <?= json_encode($_SESSION['communityComments'][$communityTab] ?? []) ?>;
-    const postComments = comments.filter(c => c.postId == postId);
-    
-    let html = `
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-2xl font-bold text-white">게시글</h2>
-            <button onclick="closePostDetailModal()" class="p-2 hover:bg-gray-700 rounded-full text-gray-400">
-                <i data-lucide="x" style="width: 24px; height: 24px;"></i>
-            </button>
-        </div>
-        
-        <div class="space-y-4">
-            <div>
-                <h3 class="text-xl font-bold text-white mb-2">${post.title}</h3>
-                <div class="flex items-center gap-4 text-sm text-gray-400 mb-4">
-                    <span>${post.author}</span>
-                    <span>${post.date}</span>
-                    ${tab === 'free' ? `<span>조회 ${post.views}</span>` : ''}
-                </div>
-                <div class="text-gray-300 whitespace-pre-wrap">${post.content || '내용이 없습니다.'}</div>
-            </div>
+    // 게시글 데이터 가져오기 (API에서 조회)
+    fetch(`../api/community.php?tab=${tab}&postId=${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success || !data.data) {
+                alert('게시글을 찾을 수 없습니다.');
+                return;
+            }
             
-            <!-- 댓글 섹션 -->
-            <div class="border-t border-gray-700 pt-4">
-                <h4 class="font-bold text-white mb-3">댓글 (${postComments.length})</h4>
+            const post = data.data;
+            const comments = data.comments || [];
+            
+            let html = `
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-white">게시글</h2>
+                    <button onclick="closePostDetailModal()" class="p-2 hover:bg-gray-700 rounded-full text-gray-400">
+                        <i data-lucide="x" style="width: 24px; height: 24px;"></i>
+                    </button>
+                </div>
                 
-                <!-- 댓글 작성 폼 -->
-                <form method="POST" action="index.php?page=split&appPage=community&tab=${tab}&postId=${postId}" class="mb-4">
-                    <input type="hidden" name="writeComment" value="1">
-                    <input type="hidden" name="postId" value="${postId}">
-                    <input type="hidden" name="tab" value="${tab}">
-                    <div class="flex gap-2">
-                        <input type="text" name="comment" required placeholder="댓글을 입력하세요" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" />
-                        <button type="submit" class="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors">
-                            등록
-                        </button>
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-2">${post.title}</h3>
+                        <div class="flex items-center gap-4 text-sm text-gray-400 mb-4">
+                            <span>${post.author}</span>
+                            <span>${post.date}</span>
+                            ${tab === 'free' ? `<span>조회 ${post.views || 0}</span>` : ''}
+                        </div>
+                        <div class="text-gray-300 whitespace-pre-wrap">${post.content || '내용이 없습니다.'}</div>
                     </div>
-                </form>
-                
-                <!-- 댓글 목록 -->
-                <div class="space-y-3">
-    `;
-    
-    if (postComments.length === 0) {
-        html += '<p class="text-gray-500 text-sm text-center py-4">댓글이 없습니다.</p>';
-    } else {
-        postComments.forEach(comment => {
+                    
+                    <!-- 댓글 섹션 -->
+                    <div class="border-t border-gray-700 pt-4">
+                        <h4 class="font-bold text-white mb-3">댓글 (${comments.length})</h4>
+                        
+                        <!-- 댓글 작성 폼 -->
+                        <form method="POST" action="index.php?page=split&appPage=community&tab=${tab}&postId=${postId}" class="mb-4">
+                            <input type="hidden" name="writeComment" value="1">
+                            <input type="hidden" name="postId" value="${postId}">
+                            <input type="hidden" name="tab" value="${tab}">
+                            <div class="flex gap-2">
+                                <input type="text" name="comment" required placeholder="댓글을 입력하세요" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" />
+                                <button type="submit" class="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors">
+                                    등록
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <!-- 댓글 목록 -->
+                        <div class="space-y-3">
+            `;
+            
+            if (comments.length === 0) {
+                html += '<p class="text-gray-500 text-sm text-center py-4">댓글이 없습니다.</p>';
+            } else {
+                comments.forEach(comment => {
+                    html += `
+                        <div class="bg-gray-900 rounded-lg p-3">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="font-bold text-white text-sm">${comment.author}</span>
+                                <span class="text-gray-500 text-xs">${comment.date || comment.created_at}</span>
+                            </div>
+                            <p class="text-gray-300 text-sm">${comment.content}</p>
+                        </div>
+                    `;
+                });
+            }
+            
             html += `
-                <div class="bg-gray-900 rounded-lg p-3">
-                    <div class="flex items-center gap-2 mb-2">
-                        <span class="font-bold text-white text-sm">${comment.author}</span>
-                        <span class="text-gray-500 text-xs">${comment.date}</span>
+                        </div>
                     </div>
-                    <p class="text-gray-300 text-sm">${comment.content}</p>
                 </div>
             `;
+            
+            content.innerHTML = html;
+            modal.classList.remove('hidden');
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        })
+        .catch(error => {
+            console.error('게시글 로드 오류:', error);
+            alert('게시글을 불러오는 중 오류가 발생했습니다.');
         });
-    }
-    
-    html += `
-                </div>
-            </div>
-        </div>
-    `;
-    
-    content.innerHTML = html;
-    modal.classList.remove('hidden');
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
 }
 
 // 게시글 상세 모달 닫기

@@ -268,48 +268,53 @@ function initMap() {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
     
-    performances.forEach(perf => {
-        const isLive = perf.status === '진행중';
-        const statusText = isLive ? 'LIVE' : '진행 예정';
-        const icon = L.divIcon({
-            className: 'custom-marker',
-            html: `
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <div style="
-                        background: ${isLive ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #9333ea, #7c3aed)'};
-                        border: 3px solid #ffffff;
-                        border-radius: 50%;
-                        width: 40px;
-                        height: 40px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 24px;
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                    ">
-                        🎤
+        performances.forEach(perf => {
+            // 좌표가 없으면 건너뛰기
+            if (!perf.lat || !perf.lng) {
+                return;
+            }
+            
+            const isLive = perf.status === '진행중';
+            const statusText = isLive ? 'LIVE' : '진행 예정';
+            const icon = L.divIcon({
+                className: 'custom-marker',
+                html: `
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        <div style="
+                            background: ${isLive ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #9333ea, #7c3aed)'};
+                            border: 3px solid #ffffff;
+                            border-radius: 50%;
+                            width: 40px;
+                            height: 40px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 24px;
+                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                        ">
+                            🎤
+                        </div>
+                        <div style="
+                            margin-top: 4px;
+                            background: ${isLive ? '#ef4444' : '#9333ea'};
+                            color: white;
+                            font-size: 9px;
+                            font-weight: bold;
+                            padding: 2px 5px;
+                            border-radius: 6px;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                        ">
+                            ${statusText}
+                        </div>
                     </div>
-                    <div style="
-                        margin-top: 4px;
-                        background: ${isLive ? '#ef4444' : '#9333ea'};
-                        color: white;
-                        font-size: 9px;
-                        font-weight: bold;
-                        padding: 2px 5px;
-                        border-radius: 6px;
-                        white-space: nowrap;
-                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-                    ">
-                        ${statusText}
-                    </div>
-                </div>
-            `,
-            iconSize: [40, 60],
-            iconAnchor: [20, 60],
-            popupAnchor: [0, -60],
-        });
-        
-        const marker = L.marker([perf.lat, perf.lng], { icon }).addTo(map);
+                `,
+                iconSize: [40, 60],
+                iconAnchor: [20, 60],
+                popupAnchor: [0, -60],
+            });
+            
+            const marker = L.marker([perf.lat, perf.lng], { icon }).addTo(map);
         marker.bindPopup(`
             <div style="color: #111827;">
                 <div class="text-2xl mb-2">${perf.image}</div>
@@ -319,12 +324,6 @@ function initMap() {
                 ${perf.status === '진행중' ? '<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs rounded-full mt-2">LIVE</span>' : ''}
             </div>
         `);
-        
-        marker.on('click', () => {
-            if (typeof showPerformanceModal === 'function') {
-                showPerformanceModal(perf);
-            }
-        });
     });
     
     // Lucide 아이콘 초기화 (헤더의 아이콘을 위해)

@@ -10,10 +10,9 @@ header('Access-Control-Allow-Origin: *'); // 개발용, 실제 배포 시 특정
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// 세션에 사용자 데이터 초기화
-if (!isset($_SESSION['users'])) {
-    $_SESSION['users'] = [];
-}
+require_once __DIR__ . '/../config/database.php';
+
+$pdo = getDBConnection();
 
 // POST 요청: 회원가입
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -81,7 +80,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // 중복 아이디 확인
+    // 중복 아이디 확인 (데이터베이스 우선)
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE user_id = ?");
+            $stmt->execute([$user_id]);
+            if ($stmt->fetch()) {
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => '이미 사용 중인 아이디입니다.'
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in register.php: " . $e->getMessage());
+        }
+    }
+    
+    // 세션 기반 중복 확인 (폴백)
+    if (!isset($_SESSION['users'])) {
+        $_SESSION['users'] = [];
+    }
     foreach ($_SESSION['users'] as $user) {
         if ($user['user_id'] === $user_id) {
             http_response_code(409);
@@ -117,7 +137,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 비밀번호 해싱
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     
-    // 새 사용자 데이터 생성
+    // 데이터베이스에 저장 시도
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("INSERT INTO users (user_id, password, name, user_type, phone, interested_location) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $user_id,
+                $hashedPassword,
+                $name,
+                $userType,
+                $data['phone'] ?? null,
+                $data['interestedLocation'] ?? null
+            ]);
+            
+            $userId = $pdo->lastInsertId();
+            
+            // 버스커인 경우 buskers 테이블에도 추가
+            if ($userType === 'artist' && !empty($data['teamName'])) {
+                try {
+                    $buskerStmt = $pdo->prepare("INSERT INTO buskers (user_id, name, phone, preferred_location) VALUES (?, ?, ?, ?)");
+                    $buskerStmt->execute([
+                        $userId,
+                        $data['teamName'],
+                        $data['contactPhone'] ?? $data['phone'] ?? '',
+                        $data['activityLocation'] ?? null
+                    ]);
+                } catch (PDOException $e) {
+                    error_log("Error creating busker record: " . $e->getMessage());
+                }
+            }
+            
+            // 회원가입 성공 시 자동 로그인
+            $_SESSION['userId'] = $userId;
+            $_SESSION['user_id'] = $user_id;
+            $_SESSION['userName'] = $name;
+            $_SESSION['userType'] = $userType;
+            $_SESSION['favorites'] = [];
+            $_SESSION['selectedLocation'] = '';
+            
+            echo json_encode([
+                'success' => true,
+                'message' => '회원가입이 완료되었습니다.',
+                'data' => [
+                    'id' => $userId,
+                    'user_id' => $user_id,
+                    'name' => $name,
+                    'userType' => $userType
+                ]
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        } catch (PDOException $e) {
+            error_log("Database error in register.php: " . $e->getMessage());
+            // 데이터베이스 저장 실패 시 세션 기반으로 폴백
+        }
+    }
+    
+    // 세션 기반 저장 (폴백)
     $newUser = [
         'id' => time() . rand(1000, 9999),
         'user_id' => $user_id,
@@ -127,24 +202,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'phone' => $data['phone'] ?? '',
         'createdAt' => date('Y-m-d H:i:s'),
         'lastLoginAt' => null,
-        // 선택 정보
-        'interestedLocation' => $data['interestedLocation'] ?? '',
-        'emailNotification' => isset($data['emailNotification']) && $data['emailNotification'],
-        'smsNotification' => isset($data['smsNotification']) && $data['smsNotification']
+        'interestedLocation' => $data['interestedLocation'] ?? ''
     ];
     
-    // 사용자 유형별 추가 정보
-    if ($userType === 'viewer') {
-        $newUser['interestedGenres'] = $data['interestedGenres'] ?? [];
-        $newUser['preferredTimeSlots'] = $data['preferredTimeSlots'] ?? [];
-    } else if ($userType === 'artist') {
-        $newUser['teamName'] = $data['teamName'];
-        $newUser['performanceGenres'] = $data['performanceGenres'] ?? [];
-        $newUser['contactPhone'] = $data['contactPhone'];
-        $newUser['activityLocation'] = $data['activityLocation'];
-    }
-    
-    // 세션에 저장
     $_SESSION['users'][] = $newUser;
     
     // 회원가입 성공 시 자동 로그인

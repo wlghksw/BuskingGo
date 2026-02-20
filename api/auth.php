@@ -7,18 +7,35 @@
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); // 개발용, 실제 배포 시 특정 도메인으로 제한
-header('Access-Control-Allow-Methods: GET, POST');
+header('Access-Control-Allow-Methods: GET, POST, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// 세션에 사용자 데이터 초기화
-if (!isset($_SESSION['users'])) {
-    $_SESSION['users'] = [];
-}
+require_once __DIR__ . '/../config/database.php';
+
+$pdo = getDBConnection();
 
 // GET 요청: 현재 사용자 정보 조회
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $userId = $_SESSION['userId'] ?? null;
     $userType = $_SESSION['userType'] ?? null;
+    
+    // 데이터베이스에서 사용자 정보 조회 (세션에 userId가 있는 경우)
+    if ($userId && $pdo) {
+        try {
+            $stmt = $pdo->prepare("SELECT id, user_id, name, user_type FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $dbUser = $stmt->fetch();
+            
+            if ($dbUser) {
+                $userType = $dbUser['user_type'];
+                $_SESSION['user_id'] = $dbUser['user_id'];
+                $_SESSION['userName'] = $dbUser['name'];
+                $_SESSION['userType'] = $dbUser['user_type'];
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in auth.php GET: " . $e->getMessage());
+        }
+    }
     
     if (!$userId && !$userType) {
         echo json_encode([
@@ -64,9 +81,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user_id = trim($data['user_id']);
         $password = $data['password'];
         
-        // 사용자 찾기
+        // 데이터베이스에서 사용자 찾기
         $foundUser = null;
-        foreach ($_SESSION['users'] as $user) {
+        
+        if ($pdo) {
+            try {
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
+                $stmt->execute([$user_id]);
+                $foundUser = $stmt->fetch();
+                
+                if ($foundUser && password_verify($password, $foundUser['password'])) {
+                    // 로그인 성공 - 마지막 로그인 시간 업데이트 (컬럼이 있는 경우만)
+                    try {
+                        $updateStmt = $pdo->prepare("UPDATE users SET last_login_at = NOW() WHERE id = ?");
+                        $updateStmt->execute([$foundUser['id']]);
+                    } catch (PDOException $e) {
+                        // last_login_at 컬럼이 없으면 무시
+                        error_log("Could not update last_login_at: " . $e->getMessage());
+                    }
+                    
+                    // 세션에 사용자 정보 저장
+                    $_SESSION['userId'] = $foundUser['id'];
+                    $_SESSION['user_id'] = $foundUser['user_id'];
+                    $_SESSION['userName'] = $foundUser['name'];
+                    $_SESSION['userType'] = $foundUser['user_type'];
+                    
+                    // 초기화 (없는 경우)
+                    if (!isset($_SESSION['favorites'])) {
+                        $_SESSION['favorites'] = [];
+                    }
+                    if (!isset($_SESSION['selectedLocation'])) {
+                        $_SESSION['selectedLocation'] = '';
+                    }
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'message' => '로그인되었습니다.',
+                        'data' => [
+                            'userId' => $foundUser['id'],
+                            'user_id' => $foundUser['user_id'],
+                            'name' => $foundUser['name'],
+                            'userType' => $foundUser['user_type'],
+                            'favorites' => $_SESSION['favorites'],
+                            'selectedLocation' => $_SESSION['selectedLocation']
+                        ]
+                    ], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+            } catch (PDOException $e) {
+                error_log("Database error in auth.php: " . $e->getMessage());
+            }
+        }
+        
+        // 데이터베이스 연결 실패 또는 사용자를 찾지 못한 경우
+        // 기존 세션 기반 로직으로 폴백 (하위 호환성)
+        foreach ($_SESSION['users'] ?? [] as $user) {
             if ($user['user_id'] === $user_id) {
                 $foundUser = $user;
                 break;
@@ -99,6 +168,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['userType'] = $foundUser['userType'];
         
         // 마지막 로그인 시간 업데이트
+        if (!isset($_SESSION['users'])) {
+            $_SESSION['users'] = [];
+        }
         foreach ($_SESSION['users'] as &$user) {
             if ($user['id'] == $foundUser['id']) {
                 $user['lastLoginAt'] = date('Y-m-d H:i:s');

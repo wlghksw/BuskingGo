@@ -43,7 +43,39 @@ $communityTab = $_GET['tab'] ?? 'free';
         <!-- 게시글 목록: 선택된 탭에 따라 다른 게시글 표시 -->
         <div class="divide-y divide-gray-700">
             <?php
-            $posts = $communityPosts[$communityTab] ?? [];
+            // 데이터베이스에서 게시글 가져오기
+            require_once __DIR__ . '/../config/database.php';
+            $pdo = getDBConnection();
+            $posts = [];
+            
+            if ($pdo) {
+                try {
+                    $stmt = $pdo->prepare("SELECT * FROM community_posts WHERE tab = ? ORDER BY date DESC, id DESC");
+                    $stmt->execute([$communityTab]);
+                    $dbPosts = $stmt->fetchAll();
+                    
+                    foreach ($dbPosts as $post) {
+                        $posts[] = [
+                            'id' => $post['id'],
+                            'title' => $post['title'],
+                            'content' => $post['content'],
+                            'author' => $post['author'],
+                            'date' => $post['date'],
+                            'views' => $post['views'],
+                            'comments' => $post['comments'],
+                            'location' => $post['location'] ?? null,
+                            'genre' => $post['genre'] ?? null,
+                            'performanceDate' => $post['performance_date'] ?? null
+                        ];
+                    }
+                } catch (PDOException $e) {
+                    error_log("Database error in community.php: " . $e->getMessage());
+                }
+            }
+            
+            // 세션에 저장된 게시글도 추가 (하위 호환성)
+            $sessionPosts = $_SESSION['communityPosts'][$communityTab] ?? [];
+            $posts = array_merge($posts, $sessionPosts);
             foreach ($posts as $post):
             ?>
             <div class="p-4 hover:bg-gray-750 cursor-pointer transition-colors">

@@ -56,18 +56,44 @@ if ($userType === 'artist' && isset($_SESSION['performances']) && is_array($_SES
 $favorites = $_SESSION['favorites'] ?? [];
 $favoritePerformances = [];
 if ($userType === 'viewer') {
-    // samplePerformances와 세션의 performances를 합쳐서 검색
-    $allPerformances = [];
-    if (isset($samplePerformances) && is_array($samplePerformances)) {
-        $allPerformances = $samplePerformances;
-    }
-    if (isset($_SESSION['performances']) && is_array($_SESSION['performances'])) {
-        $allPerformances = array_merge($_SESSION['performances'], $allPerformances);
+    // 데이터베이스에서 찜한 공연 조회
+    require_once __DIR__ . '/../config/database.php';
+    $pdo = getDBConnection();
+    
+    if ($pdo && !empty($favorites)) {
+        try {
+            $placeholders = implode(',', array_fill(0, count($favorites), '?'));
+            $stmt = $pdo->prepare("SELECT * FROM performances WHERE id IN ($placeholders) ORDER BY created_at DESC");
+            $stmt->execute($favorites);
+            $dbPerformances = $stmt->fetchAll();
+            
+            foreach ($dbPerformances as $perf) {
+                $favoritePerformances[] = [
+                    'id' => $perf['id'],
+                    'buskerName' => $perf['busker_name'],
+                    'location' => $perf['location'],
+                    'lat' => $perf['lat'] ? (float)$perf['lat'] : null,
+                    'lng' => $perf['lng'] ? (float)$perf['lng'] : null,
+                    'startTime' => $perf['start_time'],
+                    'endTime' => $perf['end_time'],
+                    'status' => $perf['status'],
+                    'image' => $perf['image'] ?? '🎤',
+                    'rating' => $perf['rating'] ? (float)$perf['rating'] : 0,
+                    'distance' => $perf['distance'] ? (float)$perf['distance'] : 0,
+                    'description' => $perf['description'] ?? ''
+                ];
+            }
+        } catch (PDOException $e) {
+            error_log("Error loading favorite performances: " . $e->getMessage());
+        }
     }
     
-    foreach ($allPerformances as $perf) {
-        if (in_array($perf['id'], $favorites)) {
-            $favoritePerformances[] = $perf;
+    // 세션에 저장된 공연도 추가 (하위 호환성)
+    if (isset($_SESSION['performances']) && is_array($_SESSION['performances'])) {
+        foreach ($_SESSION['performances'] as $perf) {
+            if (in_array($perf['id'], $favorites)) {
+                $favoritePerformances[] = $perf;
+            }
         }
     }
 }

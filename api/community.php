@@ -10,11 +10,18 @@ header('Access-Control-Allow-Origin: *'); // 개발용, 실제 배포 시 특정
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/constants.php';
 
-// 세션에 커뮤니티 게시글 데이터 초기화
+$pdo = getDBConnection();
+
+// 세션에 커뮤니티 게시글 데이터 초기화 (더미 데이터 제거됨)
 if (!isset($_SESSION['communityPosts'])) {
-    $_SESSION['communityPosts'] = $communityPosts;
+    $_SESSION['communityPosts'] = [
+        'free' => [],
+        'recruit' => [],
+        'collab' => []
+    ];
 }
 if (!isset($_SESSION['communityComments'])) {
     $_SESSION['communityComments'] = [];
@@ -62,8 +69,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
     
-    // 게시글 목록 조회
-    $posts = $_SESSION['communityPosts'][$tab] ?? [];
+    // 게시글 목록 조회 (데이터베이스 우선)
+    $posts = [];
+    
+    // 데이터베이스에서 게시글 조회
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM community_posts WHERE tab = ? ORDER BY date DESC, id DESC");
+            $stmt->execute([$tab]);
+            $dbPosts = $stmt->fetchAll();
+            
+            foreach ($dbPosts as $post) {
+                $posts[] = [
+                    'id' => $post['id'],
+                    'title' => $post['title'],
+                    'content' => $post['content'],
+                    'author' => $post['author'],
+                    'date' => $post['date'],
+                    'views' => $post['views'],
+                    'comments' => $post['comments'],
+                    'location' => $post['location'] ?? null,
+                    'genre' => $post['genre'] ?? null,
+                    'performanceDate' => $post['performance_date'] ?? null
+                ];
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in community.php GET: " . $e->getMessage());
+        }
+    }
+    
+    // 세션에 저장된 게시글도 추가 (하위 호환성)
+    $sessionPosts = $_SESSION['communityPosts'][$tab] ?? [];
+    $posts = array_merge($posts, $sessionPosts);
     
     echo json_encode([
         'success' => true,

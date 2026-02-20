@@ -35,7 +35,20 @@ if (isset($_SESSION['userType']) && $_SESSION['userType'] === 'viewer') {
 
             <div>
                 <label class="block text-sm font-bold mb-2 text-gray-300">공연 장소 *</label>
-                <input type="text" name="location" placeholder="예: 천안역 광장" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" />
+                <input type="text" name="location" id="location-input" placeholder="예: 천안역 광장" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 text-white placeholder-gray-500" />
+                <p class="text-xs text-gray-400 mt-1">지도에서 위치를 클릭하여 좌표를 자동으로 설정할 수 있습니다</p>
+            </div>
+            
+            <!-- 지도로 위치 선택 -->
+            <div>
+                <label class="block text-sm font-bold mb-2 text-gray-300">지도에서 위치 선택</label>
+                <div id="location-map" style="height: 250px; border-radius: 8px; overflow: hidden; border: 1px solid #374151;" class="mb-2"></div>
+                <div class="flex gap-2 text-xs text-gray-400">
+                    <span>위도: <span id="lat-display">-</span></span>
+                    <span>경도: <span id="lng-display">-</span></span>
+                </div>
+                <input type="hidden" name="lat" id="lat-input" value="">
+                <input type="hidden" name="lng" id="lng-input" value="">
             </div>
 
             <div>
@@ -65,3 +78,86 @@ if (isset($_SESSION['userType']) && $_SESSION['userType'] === 'viewer') {
         </form>
     </div>
 </div>
+
+<script>
+// Leaflet이 로드될 때까지 대기
+function initBookingMap() {
+    if (typeof L === 'undefined') {
+        // Leaflet이 아직 로드되지 않았으면 잠시 후 다시 시도
+        setTimeout(initBookingMap, 100);
+        return;
+    }
+    
+    const mapElement = document.getElementById('location-map');
+    if (!mapElement) {
+        return;
+    }
+    
+    // 지도 초기화
+    const map = L.map('location-map').setView([36.8151, 127.1139], 13);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    
+    let marker = null;
+    
+    // 지도 클릭 시 마커 추가 및 좌표 저장
+    map.on('click', function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        
+        // 기존 마커 제거
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        
+        // 새 마커 추가
+        marker = L.marker([lat, lng]).addTo(map);
+        
+        // 좌표 표시
+        const latDisplay = document.getElementById('lat-display');
+        const lngDisplay = document.getElementById('lng-display');
+        const latInput = document.getElementById('lat-input');
+        const lngInput = document.getElementById('lng-input');
+        
+        if (latDisplay) latDisplay.textContent = lat.toFixed(6);
+        if (lngDisplay) lngDisplay.textContent = lng.toFixed(6);
+        if (latInput) latInput.value = lat;
+        if (lngInput) lngInput.value = lng;
+        
+        // 역지오코딩으로 주소 가져오기 (선택사항)
+        const locationInput = document.getElementById('location-input');
+        if (locationInput) {
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.display_name && locationInput.value === '') {
+                        locationInput.value = data.display_name;
+                    }
+                })
+                .catch(err => console.log('주소 가져오기 실패:', err));
+        }
+    });
+    
+    // 현재 위치 가져오기 (선택사항)
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            map.setView([lat, lng], 15);
+        }, function(error) {
+            console.log('위치 정보를 가져올 수 없습니다:', error);
+        });
+    }
+}
+
+// DOM이 로드되면 지도 초기화 시도
+document.addEventListener('DOMContentLoaded', initBookingMap);
+// 또는 이미 DOM이 로드된 경우 즉시 실행
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBookingMap);
+} else {
+    initBookingMap();
+}
+</script>

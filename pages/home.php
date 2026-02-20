@@ -152,8 +152,13 @@ document.addEventListener('DOMContentLoaded', function() {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
     
-    // 마커 추가
+    // 마커 추가 (좌표가 있는 경우만)
     performances.forEach(perf => {
+        // 좌표가 없으면 건너뛰기
+        if (!perf.lat || !perf.lng) {
+            return;
+        }
+        
         const isLive = perf.status === '진행중';
         const statusText = isLive ? 'LIVE' : '진행 예정';
         const icon = L.divIcon({
@@ -205,10 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 ${perf.status === '진행중' ? '<span class="inline-block px-2 py-1 bg-red-500 text-white text-xs rounded-full mt-2">LIVE</span>' : ''}
             </div>
         `);
-        
-        marker.on('click', () => {
-            showPerformanceModal(perf);
-        });
     });
     
     lucide.createIcons();
